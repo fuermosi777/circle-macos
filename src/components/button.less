@@ -1,0 +1,40 @@
+.Button {
+  border-radius: 4px;
+  outline: none;
+  font-weight: 500;
+  border: none;
+  box-shadow: 0 1px 1px var(--button-shadow);
+
+  &.disabled {
+    pointer-events: none;
+    color: var(--button-text-disabled);
+  }
+  &:active {
+    background-color: var(--button-bg-active);
+  }
+
+  &.focusing {
+    background-color: var(--tint);
+    color: var(--text-on-tint);
+    &.disabled {
+      pointer-events: none;
+      color: var(--button-focusing-text-disabled);
+    }
+    &:active {
+      background-color: var(--button-focusing-bg-active);
+    }
+  }
+  &.small {
+    padding: 1.5px 5px 2px;
+    font-size: var(--text-xs);
+    border-radius: 2px;
+  }
+  &.medium {
+    padding: 3px 8px 4px;
+    font-size: var(--text-s);
+  }
+  &.large {
+    padding: 6px 8px;
+    font-size: var(--text-m);
+  }
+}

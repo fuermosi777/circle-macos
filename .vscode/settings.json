@@ -1,0 +1,31 @@
+// Place your settings in this file to overwrite default and user settings.
+{
+  "files.exclude": {
+    "**/.DS_Store": true,
+    "**/.git": true,
+    "**/.hg": true,
+    "**/.svn": true,
+    "**/.webpack/": true,
+    "**/build/": true
+  },
+  "editor.tabSize": 2,
+  "editor.detectIndentation": false,
+  "javascript.validate.enable": false,
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/main.jsbundle": true,
+    "**/node_modules/**": true
+  },
+  "search.exclude": {
+    "*.lock": true,
+    "**/*.hpp": true,
+    "**/bower_components": true,
+    "**/main.jsbundle": true,
+    "**/node_modules": true
+  },
+  // Set the default
+  "editor.formatOnSave": true,
+  "editor.wordWrap": "bounded",
+  "typescript.preferences.importModuleSpecifier": "relative"
+}

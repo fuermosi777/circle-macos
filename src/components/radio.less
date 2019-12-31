@@ -1,0 +1,34 @@
+.Radio {
+  @animationTime: 0.2s;
+
+  @keyframes radio-option-select {
+    0% {
+      transform: scale(0.95);
+      opacity: 0.5;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  display: flex;
+  background-color: var(--main-bg);
+  border-radius: 5px;
+  padding: 2px;
+  box-shadow: 0 1px 1px var(--button-shadow);
+  .Option {
+    cursor: default;
+    padding: 2px;
+    font-size: var(--text-xs);
+    display: flex;
+    flex-grow: 1;
+    justify-content: center;
+    border-radius: 3px;
+    font-weight: 500;
+    &.selected {
+      background-color: var(--sub-bg);
+      animation: radio-option-select @animationTime;
+    }
+  }
+}

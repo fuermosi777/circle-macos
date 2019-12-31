@@ -1,0 +1,27 @@
+.InvisibleButton {
+  display: flex;
+  align-items: center;
+  cursor: default;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 4px 6px;
+
+  &:hover {
+    border-color: var(--sidebar-bd);
+  }
+
+  &:active {
+    box-shadow: inset 0px 0px 6px 0px var(--sidebar-bd);
+  }
+
+  svg {
+    width: 14px;
+    height: 14px;
+    stroke: var(--text-sub);
+    margin-right: 5px;
+  }
+  .label {
+    color: var(--text-sub);
+    font-size: var(--text-xs);
+  }
+}

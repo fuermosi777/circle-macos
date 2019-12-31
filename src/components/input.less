@@ -1,0 +1,28 @@
+.Input {
+  position: relative;
+  input {
+    border: none;
+    background: transparent;
+    outline: 0;
+    font-size: var(--text-s);
+    color: var(--text);
+    font-weight: 500;
+    width: 100%;
+  }
+  .options {
+    max-height: 100px;
+    overflow-y: auto;
+    position: absolute;
+    font-size: var(--text-s);
+    color: var(--text);
+    font-weight: 500;
+    border-radius: 4px;
+    background-color: var(--main-bg);
+    box-shadow: 0 1px 1px var(--button-shadow);
+    z-index: 100;
+    .option-label {
+      cursor: default;
+      padding: 3px 8px 4px;
+    }
+  }
+}
