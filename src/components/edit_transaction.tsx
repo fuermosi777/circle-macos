@@ -12,6 +12,7 @@ import {
 import { rootStore } from '../stores/root_store';
 import { isEmpty } from '../utils/helper';
 import { logger } from '../utils/logger';
+import { addOrEditTransaction } from '../utils/operations';
 import { Button } from './button';
 import { Checkbox } from './checkbox';
 import { DatePicker } from './date_picker';
@@ -119,113 +120,20 @@ export const EditTransaction = observer((props: IProps) => {
   async function handleDoneClick() {
     try {
       // Create new transaction. For exp/income type create one. For transfer create two.
-      logger.info(`Trying to create a new transaction`, {
+      await addOrEditTransaction(
         type,
-        amount,
+        Number(amount),
+        accountId,
+        date,
+        status,
         from,
         to,
-      });
-      if (type === TransactionType.Transfer) {
-        const creditTrans: ITransactionInstance = {
-          type: TransactionType.Credit,
-          amount: Number(amount),
-          accountId: from,
-          date,
-          from,
-          to,
-          status,
-          isDone: false,
-          note,
-        };
-        const creditTransId = await rootStore.transaction.add(creditTrans);
-        creditTrans.id = creditTransId;
-        const debitTrans: ITransaction = {
-          type: TransactionType.Debit,
-          amount: Number(amount),
-          accountId: to,
-          date,
-          from,
-          to,
-          status,
-          isDone: false,
-          note,
-          siblingId: creditTransId,
-        };
-        const debitTransId = await rootStore.transaction.add(debitTrans);
-        creditTrans.siblingId = debitTransId;
-        await rootStore.transaction.put(creditTrans);
-      } else {
-        // For non-trasfer type, first create or get the category.
-        let categoryId: number;
-        const category = await rootStore.category.get({ name: categoryName });
-        if (!category) {
-          let categoryType;
-          if (type === TransactionType.Credit) {
-            categoryType = CategoryType.Expense;
-          } else if (type === TransactionType.Debit) {
-            categoryType = CategoryType.Income;
-          } else {
-            logger.warn(`Incorrect transaction type.`);
-            return;
-          }
-          categoryId = await rootStore.category.add({
-            name: categoryName,
-            type: categoryType,
-          });
-        } else {
-          categoryId = category.id;
-        }
-
-        let payee = await rootStore.payee.get({ name: payeeName });
-        if (!payee) {
-          const payeeId = await rootStore.payee.add({
-            name: payeeName,
-            categoryIds: [],
-            accountIds: [],
-          });
-          payee = await rootStore.payee.get({ id: payeeId });
-        }
-        const categoryIdSet = new Set<number>(payee.categoryIds);
-        const accountIdSet = new Set<number>(payee.accountIds);
-        if (!categoryIdSet.has(categoryId)) {
-          categoryIdSet.add(categoryId);
-        }
-        if (!accountIdSet.has(accountId)) {
-          accountIdSet.add(accountId);
-        }
-        payee.categoryIds = Array.from(categoryIdSet);
-        payee.accountIds = Array.from(accountIdSet);
-
-        await rootStore.payee.put(payee);
-
-        // Now create or update the transaction.
-        let transaction: ITransaction;
-        if (props.transactionId) {
-          transaction = await rootStore.transaction.get({ id: props.transactionId });
-          transaction.type = type;
-          transaction.amount = Number(amount);
-          transaction.accountId = accountId;
-          transaction.date = date;
-          transaction.payeeId = payee.id;
-          transaction.categoryId = categoryId;
-          transaction.status = status;
-          transaction.note = note;
-        } else {
-          transaction = {
-            type,
-            amount: Number(amount),
-            accountId,
-            date,
-            payeeId: payee.id,
-            categoryId,
-
-            status,
-            isDone: false,
-            note,
-          };
-        }
-        await rootStore.transaction.put(transaction);
-      }
+        categoryName,
+        payeeName,
+        false,
+        note,
+        props.transactionId,
+      );
       props.onCancel();
     } catch (err) {
       logger.error(`Failed to create a new transaction.`, err);

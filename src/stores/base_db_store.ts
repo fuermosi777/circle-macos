@@ -46,6 +46,18 @@ export class BaseDbStore<T> {
       throw err;
     }
   }
+
+  @action
+  async delete(id: number): Promise<void> {
+    try {
+      await this.table.delete(id);
+      await this.sync();
+    } catch (err) {
+      logger.error(`Failed to delete id=${id} in ${this.tableName}`, err);
+      throw err;
+    }
+  }
+
   @action
   protected async sync() {
     try {

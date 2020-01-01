@@ -4,6 +4,7 @@ import { observer } from 'mobx-react';
 import * as React from 'react';
 import * as Icon from 'react-feather';
 
+import db from '../database';
 import { IAccount } from '../interface/account';
 import { TransactionType } from '../interface/transaction';
 import { rootStore } from '../stores/root_store';
@@ -130,6 +131,40 @@ export const Side = observer(() => {
           rootStore.modal.openModal(
             <EditAccount onCancel={() => rootStore.modal.closeModal()} accountId={accountId} />,
           );
+        },
+      }),
+    );
+    menu.append(
+      new remote.MenuItem({
+        label: 'Delete',
+        async click() {
+          let result = await remote.dialog.showMessageBox({
+            type: 'question',
+            message: 'Are you sure you want to delete this account?',
+            buttons: ['Delete', 'Cancel'],
+          });
+          if (result.response !== 0 /* Delete */) {
+            return;
+          }
+          const transactions = await db.transactions.where({ accountId }).toArray();
+          if (transactions.length > 0) {
+            result = await remote.dialog.showMessageBox({
+              type: 'question',
+              message: `Will also delete ${transactions.length} transactions associated with this account.`,
+              buttons: ['OK', 'Cancel'],
+            });
+            if (result.response !== 0) {
+              return;
+            }
+            // Start deletion.
+            for (const transaction of transactions) {
+              await rootStore.transaction.delete(transaction.id);
+            }
+            await rootStore.account.delete(accountId);
+          } else {
+            // No associated transactions, just delete it.
+            await rootStore.account.delete(accountId);
+          }
         },
       }),
     );

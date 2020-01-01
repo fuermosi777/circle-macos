@@ -27,6 +27,29 @@ export const TransactionList = observer((props: IProps) => {
       }),
     );
 
+    menu.append(
+      new remote.MenuItem({
+        label: 'Delete',
+        async click() {
+          const result = await remote.dialog.showMessageBox({
+            type: 'question',
+            message: 'Are you sure you want to delete this transaction?',
+            buttons: ['Delete', 'Cancel'],
+          });
+          if (result.response === 0 /* Delete */) {
+            const transaction = await rootStore.transaction.get({ id: transactionId });
+            if (!transaction) {
+              return;
+            }
+            if (transaction.siblingId) {
+              await rootStore.transaction.delete(transaction.siblingId);
+            }
+            await rootStore.transaction.delete(transaction.id);
+          }
+        },
+      }),
+    );
+
     menu.popup();
   }
 

@@ -22,7 +22,7 @@ export class TransactionStore extends BaseDbStore<ITransactionInstance> {
   async sync() {
     try {
       const transactions = await this.table
-        .orderBy('id')
+        .orderBy('date')
         .reverse()
         .toArray();
       const instances: ITransactionInstance[] = [];
