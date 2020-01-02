@@ -1,13 +1,17 @@
-import { action, decorate, observable } from 'mobx';
+import { action, observable } from 'mobx';
 
 import { RootStore } from './root_store';
 
 export class ModalStore {
-  showModal: boolean = false;
+  @observable
+  showModal: boolean;
+
+  @observable.ref
   modalContent: JSX.Element;
 
   constructor(public rootStore: RootStore) {}
 
+  @action
   openModal(content?: JSX.Element): void {
     if (this.showModal) {
       return;
@@ -16,14 +20,9 @@ export class ModalStore {
     this.showModal = true;
   }
 
+  @action
   closeModal(): void {
     this.showModal = false;
     this.modalContent = null;
   }
 }
-
-decorate(ModalStore, {
-  showModal: observable,
-  openModal: action,
-  closeModal: action,
-});

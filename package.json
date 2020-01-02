@@ -92,6 +92,7 @@
     "dexie": "^2.0.4",
     "dinero.js": "^1.6.0",
     "electron-squirrel-startup": "^1.0.0",
+    "immutable": "^4.0.0-rc.12",
     "mobx": "^5.15.1",
     "mobx-react": "^6.1.4",
     "moment": "^2.24.0",

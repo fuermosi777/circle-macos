@@ -1,5 +1,6 @@
 import * as React from 'react';
 
+import db from '../database';
 import { IAccount } from '../interface/account';
 import { Currency, CurrencyLabel } from '../interface/currency';
 import { rootStore } from '../stores/root_store';
@@ -28,7 +29,7 @@ export const EditAccount = (props: IProps) => {
       if (cancel || isEmpty(props.accountId)) {
         return;
       }
-      const account = await rootStore.account.get({ id: props.accountId });
+      const account = await db.accounts.get(props.accountId);
       setName(account.name);
       setBalance(String(account.balance));
       setCurrency(account.currency);
@@ -55,7 +56,7 @@ export const EditAccount = (props: IProps) => {
     try {
       let account: IAccount;
       if (props.accountId) {
-        account = await rootStore.account.get({ id: props.accountId });
+        account = await db.accounts.get(props.accountId);
         account.name = name;
         account.balance = Number(balance);
         account.currency = currency;

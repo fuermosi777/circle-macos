@@ -2,7 +2,8 @@ import Dinero from 'dinero.js';
 import * as React from 'react';
 
 import { ITransactionInstance, TransactionType } from '../interface/transaction';
-import { notEmpty } from '../utils/helper';
+import { isEmpty, notEmpty } from '../utils/helper';
+import { toDinero } from '../utils/money';
 
 interface IProps {
   // Group header or transaction item.
@@ -22,7 +23,7 @@ export const TransactionItem = (props: IProps) => {
     if (typeof props.data === 'string') {
       return '';
     }
-    if (notEmpty(props.data.payee)) {
+    if (notEmpty(props.data.payee) && isEmpty(props.data.from) && isEmpty(props.data.to)) {
       return props.data.payee.name;
     } else if (props.data.type === TransactionType.Credit) {
       if (notEmpty(props.data.toAccount)) {
@@ -38,11 +39,7 @@ export const TransactionItem = (props: IProps) => {
     if (typeof props.data === 'string') {
       return '';
     }
-    let amount = Dinero({
-      amount: props.data.amount,
-      precision: 0,
-      currency: props.data.account.currency as any,
-    });
+    let amount = toDinero(props.data.amount, props.data.account.currency);
     if (props.data.type === TransactionType.Credit) {
       amount = amount.multiply(-1);
     }

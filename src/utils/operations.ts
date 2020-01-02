@@ -1,3 +1,4 @@
+import db from '../database';
 import { CategoryType } from '../interface/category';
 import { IPayee } from '../interface/payee';
 import {
@@ -41,6 +42,7 @@ export async function addOrEditTransaction(
   note?: string,
   // If passing a transaction ID, then edit the existing one.
   transactionId?: number,
+  sync = true,
 ) {
   try {
     if (type === TransactionType.Transfer) {
@@ -56,7 +58,7 @@ export async function addOrEditTransaction(
         isDone,
         note,
       };
-      const creditTransId = await rootStore.transaction.add(creditTrans);
+      const creditTransId = await db.transactions.add(creditTrans);
       creditTrans.id = creditTransId;
       const debitTrans: ITransactionInstance = {
         type: TransactionType.Debit,
@@ -70,13 +72,13 @@ export async function addOrEditTransaction(
         note,
         siblingId: creditTransId,
       };
-      const debitTransId = await rootStore.transaction.add(debitTrans);
+      const debitTransId = await db.transactions.add(debitTrans);
       creditTrans.siblingId = debitTransId;
-      await rootStore.transaction.put(creditTrans);
+      await db.transactions.put(creditTrans);
     } else {
       // For non-trasfer type, first create or get the category.
       let categoryId: number;
-      const category = await rootStore.category.get({ name: categoryName });
+      const category = await db.categories.get({ name: categoryName });
       if (!category) {
         let categoryType;
         if (type === TransactionType.Credit) {
@@ -87,7 +89,7 @@ export async function addOrEditTransaction(
           logger.warn(`Incorrect category type.`);
           return;
         }
-        categoryId = await rootStore.category.add({
+        categoryId = await db.categories.add({
           name: categoryName,
           type: categoryType,
         });
@@ -96,25 +98,25 @@ export async function addOrEditTransaction(
         categoryId = category.id;
       }
 
-      let payee = await rootStore.payee.get({ name: payeeName });
+      let payee = await db.payees.get({ name: payeeName });
       if (!payee) {
         payee = {
           name: payeeName,
           categoryIds: [],
           accountIds: [],
         };
-        const payeeId = await rootStore.payee.add(payee);
+        const payeeId = await db.payees.add(payee);
         logger.info(`Payee ${payeeName} doesn't exist. Create one.`);
         payee.id = payeeId;
       }
 
       addCategoryToPayee(payee, categoryId);
       addAccountToPayee(payee, accountId);
-      await rootStore.payee.put(payee);
+      await db.payees.put(payee);
 
       // If has transaction ID, just delete the old one and create new.
       if (transactionId) {
-        await rootStore.transaction.delete(transactionId);
+        await db.transactions.delete(transactionId);
       }
 
       const transaction: ITransaction = {
@@ -124,13 +126,21 @@ export async function addOrEditTransaction(
         date,
         payeeId: payee.id,
         categoryId,
-
+        // From and To are for importing mode.
+        from,
+        to,
         status,
         isDone,
         note,
       };
 
-      await rootStore.transaction.put(transaction);
+      await db.transactions.put(transaction);
+    }
+
+    if (sync) {
+      await rootStore.transaction.sync();
+      await rootStore.category.sync();
+      await rootStore.payee.sync();
     }
   } catch (err) {
     throw err;

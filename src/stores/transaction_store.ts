@@ -1,4 +1,4 @@
-import { computed } from 'mobx';
+import { action, computed } from 'mobx';
 import moment from 'moment';
 
 import db from '../database';
@@ -19,11 +19,15 @@ export class TransactionStore extends BaseDbStore<ITransactionInstance> {
     super('transactions');
   }
 
+  // Override.
+  @action
   async sync() {
     try {
       const transactions = await this.table
         .orderBy('date')
         .reverse()
+        .offset(this.offset)
+        .limit(this.limit)
         .toArray();
       const instances: ITransactionInstance[] = [];
       for (const transaction of transactions) {

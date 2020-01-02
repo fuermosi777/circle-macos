@@ -4,9 +4,13 @@ import { action, observable } from 'mobx';
 import db from '../database';
 import { logger } from '../utils/logger';
 
+// Deprecate.
 export class BaseDbStore<T> {
   @observable
   data: T[] = [];
+
+  protected offset = 0;
+  protected limit = 50;
 
   protected table: Dexie.Table<T, number> = db[this.tableName as keyof typeof db] as any;
 
@@ -59,7 +63,7 @@ export class BaseDbStore<T> {
   }
 
   @action
-  protected async sync() {
+  async sync() {
     try {
       this.data = await this.table
         .orderBy('id')

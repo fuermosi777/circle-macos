@@ -2,10 +2,16 @@ import * as fs from 'fs';
 
 import parse from 'csv-parse';
 import { remote } from 'electron';
+import moment from 'moment';
 import * as React from 'react';
 
 import db from '../database';
+import { IAccount } from '../interface/account';
+import { TransactionStatus, TransactionType } from '../interface/transaction';
+import { rootStore } from '../stores/root_store';
+import { isEmpty, notEmpty } from '../utils/helper';
 import { logger } from '../utils/logger';
+import { addOrEditTransaction } from '../utils/operations';
 import { Button } from './button';
 import { Gap } from './gap';
 
@@ -55,28 +61,84 @@ export const ImportFlow = (props: IProps) => {
         }
         localLog(`Received ${parsed.length - 1} records.`);
 
-        await db.transaction('rw', db.transactions, db.accounts, async () => {
-          localLog('Start importing records.');
-          for (let i = 1; i < parsed.length; i++) {
-            const [
-              date,
-              description,
-              categoryName,
-              payeeName,
-              notes,
-              pendingOrCleared,
-              accountName,
-              transferAccountName,
-              amount,
-            ] = parsed[i];
-            const account = await db.accounts.get({ name: accountName });
-            if (!account) {
-              throw new Error(
-                `Account with name "${accountName}" doesn't exist. Stop and undo everything. Please create the account and then try again.`,
+        await db.transaction(
+          'rw',
+          db.transactions,
+          db.accounts,
+          db.categories,
+          db.payees,
+          async () => {
+            localLog('Start importing records.');
+            for (let i = 1; i < parsed.length; i++) {
+              const [
+                date,
+                description,
+                categoryName,
+                payeeName,
+                notes,
+                pendingOrCleared,
+                accountName,
+                transferAccountName,
+                amount,
+              ] = parsed[i];
+              const account = await db.accounts.get({ name: accountName });
+              let transferAccount: IAccount;
+              if (notEmpty(transferAccountName)) {
+                transferAccount = await db.accounts.get({ name: transferAccountName });
+              }
+              // Doesn't find account with name or trasferAccountName, panic.
+              if (!account || (notEmpty(transferAccountName) && isEmpty(transferAccount))) {
+                throw new Error(
+                  `Account with name "${accountName}" doesn't exist. Stop and undo everything. Please create the account and then try again.`,
+                );
+              }
+              const numeral = Number(amount.replace(/\,/g, ''));
+              const type: TransactionType =
+                numeral < 0 ? TransactionType.Credit : TransactionType.Debit;
+              const status: TransactionStatus =
+                pendingOrCleared === 'Cleared'
+                  ? TransactionStatus.Cleared
+                  : TransactionStatus.Pending;
+              let toAccount: IAccount;
+              let fromAccount: IAccount;
+              let toAccountId: number;
+              let fromAccountId: number;
+              if (notEmpty(transferAccountName)) {
+                if (numeral < 0) {
+                  toAccount = await db.accounts.get({ name: transferAccountName });
+                  toAccountId = toAccount.id;
+                  fromAccountId = account.id;
+                } else if (numeral > 0) {
+                  fromAccount = await db.accounts.get({ name: transferAccountName });
+                  fromAccountId = fromAccount.id;
+                  toAccountId = account.id;
+                }
+              }
+              await addOrEditTransaction(
+                type,
+                Math.abs(numeral),
+                account.id,
+                moment(date).toDate(),
+                status,
+                fromAccountId,
+                toAccountId,
+                categoryName,
+                payeeName,
+                true,
+                notes,
+                undefined, // should sync
+                false, // should sync
               );
+              localLog(`Done ${i}/${parsed.length - 1}.`);
             }
-          }
-        });
+          },
+        );
+
+        // Sync after bulk import.
+        await rootStore.transaction.sync();
+        await rootStore.category.sync();
+        await rootStore.payee.sync();
+        await rootStore.account.sync();
       } else {
         localLog(`Do not open any file.`);
       }
@@ -91,7 +153,7 @@ export const ImportFlow = (props: IProps) => {
       <div className='button-group'>
         <Button label='Open' onClick={handleOpenClick} />
         <Gap vertical size={10} />
-        <Button label='Cancel' onClick={props.onCancel} />
+        <Button label='Close' onClick={props.onCancel} />
       </div>
       <div className='message-box'>
         {messages.map((msg, index) => (

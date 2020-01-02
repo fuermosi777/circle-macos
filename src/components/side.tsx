@@ -1,12 +1,9 @@
-import Dinero from 'dinero.js';
 import { remote } from 'electron';
 import { observer } from 'mobx-react';
 import * as React from 'react';
 import * as Icon from 'react-feather';
 
 import db from '../database';
-import { IAccount } from '../interface/account';
-import { TransactionType } from '../interface/transaction';
 import { rootStore } from '../stores/root_store';
 import { stopEvent } from '../utils/component_utils';
 import { EditAccount } from './edit_account';
@@ -47,7 +44,7 @@ export const SideBorder = () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  });
+  }, []);
 
   return (
     <div
@@ -171,39 +168,20 @@ export const Side = observer(() => {
 
     menu.popup();
   }
+
   return (
     <div className='Side' style={{ width: rootStore.app.sideWidth }}>
       <div className='side-top'></div>
       <div className='side-item-group'>
         <SideItem icon={<Icon.Star />} iconClassName='account-header' label='Accounts' />
-        {rootStore.account.data.map((account: IAccount) => {
-          let rBalance = Dinero({
-            amount: account.balance,
-            currency: account.currency as any,
-            precision: 0,
-          });
-          for (const transaction of rootStore.transaction.data) {
-            if (transaction.accountId !== account.id) {
-              continue;
-            }
-            const amount = Dinero({
-              amount: transaction.amount,
-              currency: account.currency as any,
-              precision: 0,
-            });
-            if (transaction.type === TransactionType.Credit) {
-              rBalance = rBalance.subtract(amount);
-            } else if (transaction.type === TransactionType.Debit) {
-              rBalance = rBalance.add(amount);
-            }
-          }
+        {rootStore.account.data.map((account) => {
           return (
             <SideItem
               key={account.id}
               icon={<Icon.CreditCard />}
               iconClassName='account'
               label={account.name}
-              info={rBalance.toFormat('$0,0.00')}
+              info={rootStore.account.getRuningBalance(account.id)}
               onContextMenu={() => handleContextMenu(account.id)}
             />
           );
