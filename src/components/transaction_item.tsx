@@ -23,7 +23,7 @@ export const TransactionItem = (props: IProps) => {
     if (typeof props.data === 'string') {
       return '';
     }
-    if (notEmpty(props.data.payee) && isEmpty(props.data.from) && isEmpty(props.data.to)) {
+    if (isEmpty(props.data.siblingId)) {
       return props.data.payee.name;
     } else if (props.data.type === TransactionType.Credit) {
       if (notEmpty(props.data.toAccount)) {

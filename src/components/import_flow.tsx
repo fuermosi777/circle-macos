@@ -69,6 +69,9 @@ export const ImportFlow = (props: IProps) => {
           db.payees,
           async () => {
             localLog('Start importing records.');
+            let foundTransfer = false;
+            let transferFromAccount: IAccount;
+            let transferToAccount: IAccount;
             for (let i = 1; i < parsed.length; i++) {
               const [
                 date,
@@ -93,42 +96,45 @@ export const ImportFlow = (props: IProps) => {
                 );
               }
               const numeral = Number(amount.replace(/\,/g, ''));
-              const type: TransactionType =
+              let type: TransactionType =
                 numeral < 0 ? TransactionType.Credit : TransactionType.Debit;
               const status: TransactionStatus =
                 pendingOrCleared === 'Cleared'
                   ? TransactionStatus.Cleared
                   : TransactionStatus.Pending;
-              let toAccount: IAccount;
-              let fromAccount: IAccount;
-              let toAccountId: number;
-              let fromAccountId: number;
+
+              // Handler transfers.
               if (notEmpty(transferAccountName)) {
+                type = TransactionType.Transfer;
                 if (numeral < 0) {
-                  toAccount = await db.accounts.get({ name: transferAccountName });
-                  toAccountId = toAccount.id;
-                  fromAccountId = account.id;
+                  transferToAccount = await db.accounts.get({ name: transferAccountName });
                 } else if (numeral > 0) {
-                  fromAccount = await db.accounts.get({ name: transferAccountName });
-                  fromAccountId = fromAccount.id;
-                  toAccountId = account.id;
+                  transferFromAccount = await db.accounts.get({ name: transferAccountName });
+                }
+                if (!foundTransfer) {
+                  foundTransfer = true;
+                } else if (foundTransfer) {
+                  foundTransfer = false;
                 }
               }
-              await addOrEditTransaction(
-                type,
-                Math.abs(numeral),
-                account.id,
-                moment(date).toDate(),
-                status,
-                fromAccountId,
-                toAccountId,
-                categoryName,
-                payeeName,
-                true,
-                notes,
-                undefined, // should sync
-                false, // should sync
-              );
+
+              if (!foundTransfer) {
+                await addOrEditTransaction(
+                  type,
+                  Math.abs(numeral),
+                  account.id,
+                  moment(date).toDate(),
+                  status,
+                  transferFromAccount ? transferFromAccount.id : undefined,
+                  transferToAccount ? transferToAccount.id : undefined,
+                  categoryName,
+                  payeeName,
+                  true,
+                  notes || description,
+                  undefined, // should sync
+                  false, // should sync
+                );
+              }
               localLog(`Done ${i}/${parsed.length - 1}.`);
             }
           },

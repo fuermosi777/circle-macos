@@ -1,13 +1,9 @@
 import db from '../database';
 import { CategoryType } from '../interface/category';
 import { IPayee } from '../interface/payee';
-import {
-  ITransaction,
-  ITransactionInstance,
-  TransactionStatus,
-  TransactionType,
-} from '../interface/transaction';
+import { ITransaction, TransactionStatus, TransactionType } from '../interface/transaction';
 import { rootStore } from '../stores/root_store';
+import { notEmpty } from './helper';
 import { logger } from './logger';
 
 function addCategoryToPayee(payee: IPayee, categoryId: number) {
@@ -46,8 +42,21 @@ export async function addOrEditTransaction(
 ) {
   try {
     if (type === TransactionType.Transfer) {
+      // For editing, delete the old two transactions.
+      if (notEmpty(transactionId)) {
+        const transaction = await db.transactions.get(transactionId);
+        if (transaction) {
+          await db.transactions.delete(transaction.siblingId);
+          await db.transactions.delete(transactionId);
+        } else {
+          throw new Error(
+            `Try to modify Transfer transaction of ${transactionId} but it doesn't exist.`,
+          );
+        }
+      }
+
       // For transfer, create two corresbonding transactions.
-      const creditTrans: ITransactionInstance = {
+      const creditTrans: ITransaction = {
         type: TransactionType.Credit,
         amount,
         accountId: from,
@@ -60,7 +69,7 @@ export async function addOrEditTransaction(
       };
       const creditTransId = await db.transactions.add(creditTrans);
       creditTrans.id = creditTransId;
-      const debitTrans: ITransactionInstance = {
+      const debitTrans: ITransaction = {
         type: TransactionType.Debit,
         amount,
         accountId: to,
@@ -74,6 +83,7 @@ export async function addOrEditTransaction(
       };
       const debitTransId = await db.transactions.add(debitTrans);
       creditTrans.siblingId = debitTransId;
+
       await db.transactions.put(creditTrans);
     } else {
       // For non-trasfer type, first create or get the category.
@@ -115,7 +125,7 @@ export async function addOrEditTransaction(
       await db.payees.put(payee);
 
       // If has transaction ID, just delete the old one and create new.
-      if (transactionId) {
+      if (notEmpty(transactionId)) {
         await db.transactions.delete(transactionId);
       }
 
@@ -126,15 +136,12 @@ export async function addOrEditTransaction(
         date,
         payeeId: payee.id,
         categoryId,
-        // From and To are for importing mode.
-        from,
-        to,
         status,
         isDone,
         note,
       };
 
-      await db.transactions.put(transaction);
+      await db.transactions.add(transaction);
     }
 
     if (sync) {

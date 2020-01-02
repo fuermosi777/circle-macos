@@ -44,7 +44,7 @@ export const SideBorder = () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, []);
+  });
 
   return (
     <div
