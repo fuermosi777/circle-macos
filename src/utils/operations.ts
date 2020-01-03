@@ -23,6 +23,14 @@ function addAccountToPayee(payee: IPayee, accountId: number) {
   payee.accountIds = Array.from(accountIdSet);
 }
 
+/*
+  1. add a transfer - add two transactions
+  2. add a exp/income - add a transaction
+  3. edit a transfer - delete the two and create two new
+  4. edit a exp/income - delete and create new
+  5. convert a exp/income to transfer - delete old and add two
+  6. convert a transfer to exp/income - delete the two and create one
+*/
 export async function addOrEditTransaction(
   type: TransactionType,
   amount: number,
@@ -145,7 +153,11 @@ export async function addOrEditTransaction(
     }
 
     if (sync) {
-      await rootStore.transaction.sync();
+      if (transactionId) {
+        await rootStore.transaction.partialLoad(transactionId);
+      } else {
+        await rootStore.transaction.freshLoad();
+      }
       await rootStore.category.sync();
       await rootStore.payee.sync();
     }

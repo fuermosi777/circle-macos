@@ -4,7 +4,7 @@ import db from '../database';
 import { IAccount } from '../interface/account';
 import { Currency, CurrencyLabel } from '../interface/currency';
 import { rootStore } from '../stores/root_store';
-import { isEmpty } from '../utils/helper';
+import { isEmpty, notEmpty } from '../utils/helper';
 import { logger } from '../utils/logger';
 import { Button } from './button';
 import { Checkbox } from './checkbox';
@@ -49,7 +49,7 @@ export const EditAccount = (props: IProps) => {
   }
 
   function isDoneClickable() {
-    return name && balance;
+    return notEmpty(name) && notEmpty(balance);
   }
 
   async function handleDone() {

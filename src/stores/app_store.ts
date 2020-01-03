@@ -1,5 +1,6 @@
-import { action, computed, decorate, observable } from 'mobx';
+import { action, computed, observable } from 'mobx';
 
+import { ISideItem, SideItemType, kAllAccountsIndex } from '../interface/app';
 import { throttle } from '../utils/throttle';
 import { RootStore } from './root_store';
 
@@ -8,10 +9,22 @@ const kSideWidthDefault = 250;
 const kSideWidthMax = 400;
 
 export class AppStore {
+  @observable
   windowHeight = 0;
+
+  @observable
   windowWidth = 0;
+
+  @observable
   sideWidth = kSideWidthDefault;
 
+  @observable
+  selectedSideItem: ISideItem = {
+    type: SideItemType.Account,
+    index: kAllAccountsIndex,
+  };
+
+  @computed
   get mainWidth() {
     return this.windowWidth - this.sideWidth;
   }
@@ -24,24 +37,21 @@ export class AppStore {
     this.updateWindowSizeOp();
   }
 
+  @action
   updateWindowSize() {
     this.windowHeight = window.innerHeight;
     this.windowWidth = window.innerWidth;
   }
 
+  @action
   updateSideWidth(width: number) {
     if (width > kSideWidthMin && width < kSideWidthMax) {
       this.sideWidth = width;
     }
   }
+
+  @action
+  updateSelectedSideItem(item: ISideItem) {
+    this.selectedSideItem = item;
+  }
 }
-
-decorate(AppStore, {
-  windowHeight: observable,
-  windowWidth: observable,
-  sideWidth: observable,
-  mainWidth: computed,
-
-  updateWindowSize: action,
-  updateSideWidth: action,
-});

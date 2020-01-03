@@ -1,14 +1,9 @@
 import { observer } from 'mobx-react';
 import * as React from 'react';
 
+import db from '../database';
 import { IAccount } from '../interface/account';
-import { CategoryType } from '../interface/category';
-import {
-  ITransaction,
-  ITransactionInstance,
-  TransactionStatus,
-  TransactionType,
-} from '../interface/transaction';
+import { TransactionStatus, TransactionType } from '../interface/transaction';
 import { rootStore } from '../stores/root_store';
 import { isEmpty } from '../utils/helper';
 import { logger } from '../utils/logger';
@@ -51,7 +46,7 @@ export const EditTransaction = observer((props: IProps) => {
       if (cancel || isEmpty(props.transactionId)) {
         return;
       }
-      const transaction = await rootStore.transaction.get({ id: props.transactionId });
+      const transaction = await db.transactions.get(props.transactionId);
       if (!transaction) {
         logger.warn(
           `Try to load a transaction for editing but did not find it: ${props.transactionId}`,
@@ -68,13 +63,13 @@ export const EditTransaction = observer((props: IProps) => {
         }
       }
       if (transaction.from) {
-        const fromTransaction = await rootStore.transaction.get({ id: transaction.from });
+        const fromTransaction = await db.transactions.get(transaction.from);
         if (fromTransaction) {
           setFrom(fromTransaction.id);
         }
       }
       if (transaction.to) {
-        const toTransaction = await rootStore.transaction.get({ id: transaction.to });
+        const toTransaction = await db.transactions.get(transaction.to);
         if (toTransaction) {
           setTo(toTransaction.id);
         }

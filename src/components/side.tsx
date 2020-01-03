@@ -4,8 +4,10 @@ import * as React from 'react';
 import * as Icon from 'react-feather';
 
 import db from '../database';
+import { ISideItem, SideItemType, kAllAccountsIndex } from '../interface/app';
 import { rootStore } from '../stores/root_store';
 import { stopEvent } from '../utils/component_utils';
+import { notEmpty } from '../utils/helper';
 import { EditAccount } from './edit_account';
 import { EditTransaction } from './edit_transaction';
 import { ImportFlow } from './import_flow';
@@ -62,12 +64,17 @@ interface IItemProps {
   label: string;
   iconClassName: string;
   info?: string;
+  selected?: boolean;
+  onSelect(): void;
   onContextMenu?(): void;
 }
 
 const SideItem = (props: IItemProps) => {
   return (
-    <div className='SideItem' onContextMenu={props.onContextMenu}>
+    <div
+      className={`SideItem ${props.selected ? 'selected' : ''}`}
+      onContextMenu={props.onContextMenu}
+      onClick={props.onSelect}>
       {props.info && <div className='side-info'>{props.info}</div>}
       <div className='content'>
         {props.icon && <span className={`side-icon ${props.iconClassName}`}>{props.icon}</span>}
@@ -169,20 +176,58 @@ export const Side = observer(() => {
     menu.popup();
   }
 
+  function getBalance(accountId: number): string {
+    let balance = rootStore.account.runningBalance.get(accountId, '');
+    if (notEmpty(balance)) {
+      return (balance as Dinero.Dinero).toFormat('$0,0.00');
+    }
+    return '';
+  }
+
+  function handleSideItemSelect(sideItem: ISideItem) {
+    rootStore.app.updateSelectedSideItem(sideItem);
+    rootStore.transaction.freshLoad();
+  }
+
+  function matchSelectedSideItem(item: ISideItem) {
+    return (
+      rootStore.app.selectedSideItem.type === item.type &&
+      rootStore.app.selectedSideItem.index === item.index
+    );
+  }
+
+  const allAccountSideItem = {
+    type: SideItemType.Account,
+    index: kAllAccountsIndex,
+  };
+
   return (
     <div className='Side' style={{ width: rootStore.app.sideWidth }}>
       <div className='side-top'></div>
       <div className='side-item-group'>
-        <SideItem icon={<Icon.Star />} iconClassName='account-header' label='Accounts' />
+        <SideItem
+          icon={<Icon.Star />}
+          iconClassName='account-header'
+          label='Accounts'
+          onSelect={() => handleSideItemSelect(allAccountSideItem)}
+          selected={matchSelectedSideItem(allAccountSideItem)}
+        />
         {rootStore.account.data.map((account) => {
+          const sideItem: ISideItem = {
+            type: SideItemType.Account,
+            index: account.id,
+          };
+
           return (
             <SideItem
               key={account.id}
               icon={<Icon.CreditCard />}
               iconClassName='account'
               label={account.name}
-              info={rootStore.account.getRuningBalance(account.id)}
+              info={getBalance(account.id)}
               onContextMenu={() => handleContextMenu(account.id)}
+              onSelect={() => handleSideItemSelect(sideItem)}
+              selected={matchSelectedSideItem(sideItem)}
             />
           );
         })}

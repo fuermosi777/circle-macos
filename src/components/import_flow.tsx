@@ -1,3 +1,4 @@
+import assert from 'assert';
 import * as fs from 'fs';
 
 import parse from 'csv-parse';
@@ -17,6 +18,26 @@ import { Gap } from './gap';
 
 interface IProps {
   onCancel(): void;
+}
+
+function validateLine(line: string[], lineIndex: number) {
+  const [
+    date,
+    description,
+    categoryName,
+    payeeName,
+    notes,
+    pendingOrCleared,
+    accountName,
+    transferAccountName,
+    amount,
+  ] = line;
+  assert(
+    line.length === 9,
+    `Incorrect file format. Only support exported CSV from Debit & Credit app. Please be sure to include at least one "pending" transaction or this field will be missing from the exported file.`,
+  );
+  assert(notEmpty(date), `Missing date at ${lineIndex}.`);
+  assert(notEmpty(accountName), `Missing account name at ${lineIndex}.`);
 }
 
 export const ImportFlow = (props: IProps) => {
@@ -84,6 +105,7 @@ export const ImportFlow = (props: IProps) => {
                 transferAccountName,
                 amount,
               ] = parsed[i];
+              validateLine(parsed[i], i);
               const account = await db.accounts.get({ name: accountName });
               let transferAccount: IAccount;
               if (notEmpty(transferAccountName)) {
@@ -92,7 +114,7 @@ export const ImportFlow = (props: IProps) => {
               // Doesn't find account with name or trasferAccountName, panic.
               if (!account || (notEmpty(transferAccountName) && isEmpty(transferAccount))) {
                 throw new Error(
-                  `Account with name "${accountName}" doesn't exist. Stop and undo everything. Please create the account and then try again.`,
+                  `Account with name "${accountName}" or "${transferAccountName}" doesn't exist. Stop and undo everything. Please check and create the account and then try again.`,
                 );
               }
               const numeral = Number(amount.replace(/\,/g, ''));
@@ -141,7 +163,7 @@ export const ImportFlow = (props: IProps) => {
         );
 
         // Sync after bulk import.
-        await rootStore.transaction.sync();
+        await rootStore.transaction.freshLoad();
         await rootStore.category.sync();
         await rootStore.payee.sync();
         await rootStore.account.sync();

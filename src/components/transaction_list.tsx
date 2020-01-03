@@ -2,7 +2,9 @@ import { remote } from 'electron';
 import { observer } from 'mobx-react';
 import * as React from 'react';
 
+import db from '../database';
 import { rootStore } from '../stores/root_store';
+import { isNearBottom, isNearTop, throttle } from '../utils/helper';
 import { EditTransaction } from './edit_transaction';
 import { TransactionItem } from './transaction_item';
 
@@ -37,7 +39,7 @@ export const TransactionList = observer((props: IProps) => {
             buttons: ['Delete', 'Cancel'],
           });
           if (result.response === 0 /* Delete */) {
-            const transaction = await rootStore.transaction.get({ id: transactionId });
+            const transaction = await db.transactions.get(transactionId);
             if (!transaction) {
               return;
             }
@@ -53,8 +55,18 @@ export const TransactionList = observer((props: IProps) => {
     menu.popup();
   }
 
+  function handleScrolled(target: HTMLDivElement) {
+    if (isNearBottom(target)) {
+      rootStore.transaction.loadMore();
+    }
+  }
+  const handleScrolledOp = throttle(handleScrolled);
+
   return (
-    <div className='TransactionList' style={{ height: rootStore.app.windowHeight - 40 }}>
+    <div
+      className='TransactionList'
+      style={{ height: rootStore.app.windowHeight - 40 }}
+      onScroll={(e) => handleScrolledOp(e.target)}>
       {rootStore.transaction.groupedData.map((dotum, index) => (
         <React.Fragment key={typeof dotum === 'string' ? dotum : dotum.id}>
           {/* Divider between groups. */}

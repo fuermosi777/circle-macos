@@ -1,9 +1,9 @@
-import { action, observable, reaction } from 'mobx';
+import { Map } from 'immutable';
+import { flow, observable, reaction } from 'mobx';
 
 import db from '../database';
 import { IAccount } from '../interface/account';
 import { TransactionType } from '../interface/transaction';
-import { notEmpty } from '../utils/helper';
 import { logger } from '../utils/logger';
 import { toDinero } from '../utils/money';
 import { RootStore } from './root_store';
@@ -12,86 +12,75 @@ export class AccountStore {
   @observable
   data: IAccount[] = [];
 
-  @observable
-  runningBalance: { [accountId: number]: Dinero.Dinero } = {};
+  @observable.ref
+  runningBalance: Map<number, Dinero.Dinero> = Map();
 
   constructor(public rootStore: RootStore) {
     this.sync();
 
     reaction(
       () => this.data.map((account) => account.balance),
-      async () => {
-        await this.updateRuningBalance();
+      () => {
+        this.updateRuningBalance();
       },
     );
   }
 
-  @action
-  async sync() {
+  sync = flow(function*(this: AccountStore) {
     try {
-      this.data = await db.accounts.orderBy('name').toArray();
+      this.data = yield db.accounts.orderBy('name').toArray();
     } catch (err) {
       logger.error(err);
     }
-  }
+  });
 
-  @action
-  async updateRuningBalance() {
+  updateRuningBalance = flow(function*(this: AccountStore) {
     try {
+      let balanceMap: Map<number, Dinero.Dinero> = Map();
+      const transactions = yield db.transactions.toArray();
       for (const account of this.data) {
-        let rb = toDinero(account.balance, account.currency);
-        const transactions = await db.transactions.toArray();
+        let rb = account.balance;
         for (const transaction of transactions) {
           if (transaction.accountId !== account.id) {
             continue;
           }
-          const amount = toDinero(transaction.amount, account.currency);
           if (account.isCredit) {
             if (transaction.type === TransactionType.Credit) {
-              rb = rb.add(amount);
+              rb += transaction.amount;
             } else if (transaction.type === TransactionType.Debit) {
-              rb = rb.subtract(amount);
+              rb -= transaction.amount;
             }
           } else {
             if (transaction.type === TransactionType.Credit) {
-              rb = rb.subtract(amount);
+              rb -= transaction.amount;
             } else if (transaction.type === TransactionType.Debit) {
-              rb = rb.add(amount);
+              rb += transaction.amount;
             }
           }
         }
-        this.runningBalance[account.id] = rb;
+        balanceMap = balanceMap.set(account.id, toDinero(rb, account.currency));
       }
+      this.runningBalance = balanceMap;
     } catch (err) {
       throw err;
     }
-  }
+  });
 
-  @action
-  async delete(id: number) {
+  delete = flow(function*(this: AccountStore, id: number) {
     try {
-      await db.accounts.delete(id);
-      await this.sync();
+      yield db.accounts.delete(id);
+      yield this.sync();
     } catch (err) {
       throw err;
     }
-  }
+  });
 
-  @action
-  async put(account: IAccount) {
+  put = flow(function*(account: IAccount) {
     try {
-      await db.accounts.put(account);
-      await this.sync();
+      yield db.accounts.put(account);
+      yield this.sync();
     } catch (err) {
       throw err;
     }
-  }
-
-  getRuningBalance(accountId: number): string {
-    if (notEmpty(this.runningBalance[accountId])) {
-      return this.runningBalance[accountId].toFormat('$0,0.00');
-    }
-
-    return '';
-  }
+  });
 }
