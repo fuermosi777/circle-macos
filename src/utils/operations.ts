@@ -1,27 +1,12 @@
-import db from '../database';
-import { CategoryType } from '../interface/category';
-import { IPayee } from '../interface/payee';
-import { ITransaction, TransactionStatus, TransactionType } from '../interface/transaction';
+import { getRepository as repo } from 'typeorm';
+
+import { Account } from '../models/account';
+import { Category, CategoryType } from '../models/category';
+import { Payee } from '../models/payee';
+import { Transaction, TransactionStatus, TransactionType } from '../models/transaction';
 import { rootStore } from '../stores/root_store';
-import { notEmpty } from './helper';
+import { isEmpty, notEmpty } from './helper';
 import { logger } from './logger';
-
-function addCategoryToPayee(payee: IPayee, categoryId: number) {
-  const categoryIdSet = new Set<number>(payee.categoryIds);
-  if (!categoryIdSet.has(categoryId)) {
-    categoryIdSet.add(categoryId);
-  }
-
-  payee.categoryIds = Array.from(categoryIdSet);
-}
-
-function addAccountToPayee(payee: IPayee, accountId: number) {
-  const accountIdSet = new Set<number>(payee.accountIds);
-  if (!accountIdSet.has(accountId)) {
-    accountIdSet.add(accountId);
-  }
-  payee.accountIds = Array.from(accountIdSet);
-}
 
 /*
   1. add a transfer - add two transactions
@@ -52,114 +37,167 @@ export async function addOrEditTransaction(
     if (type === TransactionType.Transfer) {
       // For editing, delete the old two transactions.
       if (notEmpty(transactionId)) {
-        const transaction = await db.transactions.get(transactionId);
-        if (transaction) {
-          await db.transactions.delete(transaction.siblingId);
-          await db.transactions.delete(transactionId);
+        const transaction = await repo(Transaction).findOne(transactionId, {
+          relations: ['sibling'],
+        });
+        if (notEmpty(transaction) && notEmpty(transaction.sibling)) {
+          await repo(Transaction).delete(transaction.sibling.id);
+          await repo(Transaction).delete(transactionId);
         } else {
           throw new Error(
-            `Try to modify Transfer transaction of ${transactionId} but it doesn't exist.`,
+            `Try to delete Transfer transaction of ${transactionId} and \n
+            ${transaction.sibling.id} but it doesn't exist.`,
           );
         }
       }
 
-      // For transfer, create two corresbonding transactions.
-      const creditTrans: ITransaction = {
-        type: TransactionType.Credit,
-        amount,
-        accountId: from,
-        date,
-        from,
-        to,
-        status,
-        isDone,
-        note,
-      };
-      const creditTransId = await db.transactions.add(creditTrans);
-      creditTrans.id = creditTransId;
-      const debitTrans: ITransaction = {
-        type: TransactionType.Debit,
-        amount,
-        accountId: to,
-        date,
-        from,
-        to,
-        status,
-        isDone,
-        note,
-        siblingId: creditTransId,
-      };
-      const debitTransId = await db.transactions.add(debitTrans);
-      creditTrans.siblingId = debitTransId;
+      let fromAccount: Account;
+      if (notEmpty(from)) {
+        fromAccount = await repo(Account).findOne(from);
+      }
+      let toAccount: Account;
+      if (notEmpty(to)) {
+        toAccount = await repo(Account).findOne(to);
+      }
 
-      await db.transactions.put(creditTrans);
+      // For transfer, create two corresbonding transactions.
+      const creditTrans = new Transaction();
+
+      creditTrans.type = TransactionType.Credit;
+      creditTrans.amount = amount;
+      creditTrans.account = fromAccount;
+      creditTrans.date = date;
+      creditTrans.from = fromAccount;
+      creditTrans.to = toAccount;
+      creditTrans.status = status;
+      creditTrans.isDone = isDone;
+      creditTrans.note = note;
+      await repo(Transaction).save(creditTrans);
+
+      const debitTrans = new Transaction();
+      debitTrans.type = TransactionType.Debit;
+      debitTrans.amount = amount;
+      debitTrans.account = toAccount;
+      debitTrans.date = date;
+      debitTrans.from = fromAccount;
+      debitTrans.to = toAccount;
+      debitTrans.status = status;
+      debitTrans.isDone = isDone;
+      debitTrans.note = note;
+
+      debitTrans.sibling = creditTrans;
+      await repo(Transaction).save(debitTrans);
+
+      creditTrans.sibling = debitTrans;
+      await repo(Transaction).save(creditTrans);
     } else {
       // For non-trasfer type, first create or get the category.
-      let categoryId: number;
-      const category = await db.categories.get({ name: categoryName });
-      if (!category) {
+      let category = await repo(Category).findOne({ name: categoryName });
+      if (isEmpty(category)) {
         let categoryType;
         if (type === TransactionType.Credit) {
           categoryType = CategoryType.Expense;
         } else if (type === TransactionType.Debit) {
           categoryType = CategoryType.Income;
         } else {
-          logger.warn(`Incorrect category type.`);
-          return;
+          throw new Error(`Incorrect category type.`);
         }
-        categoryId = await db.categories.add({
-          name: categoryName,
-          type: categoryType,
-        });
+        category = new Category();
+        category.name = categoryName;
+        category.type = categoryType;
+        await repo(Category).save(category);
         logger.info(`Category ${categoryName} doesn't exist. Create one.`);
-      } else {
-        categoryId = category.id;
       }
 
-      let payee = await db.payees.get({ name: payeeName });
-      if (!payee) {
-        payee = {
-          name: payeeName,
-          categoryIds: [],
-          accountIds: [],
-        };
-        const payeeId = await db.payees.add(payee);
+      let payee = await repo(Payee).findOne({
+        where: { name: payeeName },
+        relations: ['categories', 'accounts'],
+      });
+      if (isEmpty(payee)) {
+        payee = new Payee();
+        payee.name = payeeName;
+        payee.categories = [];
+        payee.accounts = [];
+        await repo(Payee).save(payee);
+
         logger.info(`Payee ${payeeName} doesn't exist. Create one.`);
-        payee.id = payeeId;
       }
 
-      addCategoryToPayee(payee, categoryId);
-      addAccountToPayee(payee, accountId);
-      await db.payees.put(payee);
+      const account = await repo(Account).findOne(accountId);
+      if (isEmpty(account)) {
+        throw new Error(`Account with ID ${accountId} doesn't exist.`);
+      }
+
+      if (isEmpty(payee.categories)) {
+        payee.categories = [];
+      }
+      if (isEmpty(payee.accounts)) {
+        payee.accounts = [];
+      }
+      payee.categories.push(category);
+      payee.accounts.push(account);
+      await repo(Payee).save(payee);
 
       // If has transaction ID, just delete the old one and create new.
       if (notEmpty(transactionId)) {
-        await db.transactions.delete(transactionId);
+        await repo(Transaction).delete(transactionId);
       }
 
-      const transaction: ITransaction = {
-        type,
-        amount,
-        accountId,
-        date,
-        payeeId: payee.id,
-        categoryId,
-        status,
-        isDone,
-        note,
-      };
+      const transaction = new Transaction();
+      transaction.type = type;
+      transaction.amount = amount;
+      transaction.account = account;
+      transaction.date = date;
+      transaction.payee = payee;
+      transaction.category = category;
+      transaction.isDone = isDone;
+      transaction.note = note;
+      transaction.status = status;
 
-      await db.transactions.add(transaction);
+      await repo(Transaction).save(transaction);
     }
 
     if (sync) {
       if (transactionId) {
-        await rootStore.transaction.partialLoad(transactionId);
+        await rootStore.transaction.reload();
       } else {
         await rootStore.transaction.freshLoad();
       }
-      await rootStore.category.sync();
-      await rootStore.payee.sync();
+      await rootStore.category.freshLoad();
+      await rootStore.payee.freshLoad();
+    }
+  } catch (err) {
+    throw err;
+  }
+}
+
+export async function deleteTransaction(id: number, sync = true) {
+  try {
+    const transaction = await repo(Transaction).findOne(id, {
+      relations: ['sibling'],
+    });
+    if (isEmpty(transaction)) {
+      logger.warn(`Transaction ${id} doesn't exist.`);
+      return;
+    }
+    const transactionId = transaction.id;
+
+    // For transfer transaction, remove the sibling first.
+    if (notEmpty(transaction.sibling)) {
+      const siblingId = transaction.sibling.id;
+      const sibling = await repo(Transaction).findOne(siblingId);
+      sibling.sibling = null;
+      transaction.sibling = null;
+      await repo(Transaction).save(sibling);
+      await repo(Transaction).save(transaction);
+      await repo(Transaction).delete(siblingId);
+      if (sync) {
+        await rootStore.transaction.reload();
+      }
+    }
+    await repo(Transaction).delete(transactionId);
+    if (sync) {
+      await rootStore.transaction.reload();
     }
   } catch (err) {
     throw err;

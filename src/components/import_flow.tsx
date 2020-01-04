@@ -5,10 +5,10 @@ import parse from 'csv-parse';
 import { remote } from 'electron';
 import moment from 'moment';
 import * as React from 'react';
+import { getConnection } from 'typeorm';
 
-import db from '../database';
-import { IAccount } from '../interface/account';
-import { TransactionStatus, TransactionType } from '../interface/transaction';
+import { Account } from '../models/account';
+import { TransactionStatus, TransactionType } from '../models/transaction';
 import { rootStore } from '../stores/root_store';
 import { isEmpty, notEmpty } from '../utils/helper';
 import { logger } from '../utils/logger';
@@ -82,91 +82,85 @@ export const ImportFlow = (props: IProps) => {
         }
         localLog(`Received ${parsed.length - 1} records.`);
 
-        await db.transaction(
-          'rw',
-          db.transactions,
-          db.accounts,
-          db.categories,
-          db.payees,
-          async () => {
-            localLog('Start importing records.');
-            let foundTransfer = false;
-            let transferFromAccount: IAccount;
-            let transferToAccount: IAccount;
-            for (let i = 1; i < parsed.length; i++) {
-              const [
-                date,
-                description,
+        await getConnection().transaction(async (manager) => {
+          localLog('Start importing records.');
+          let foundTransfer = false;
+          let transferFromAccount: Account;
+          let transferToAccount: Account;
+          for (let i = 1; i < parsed.length; i++) {
+            const [
+              date,
+              description,
+              categoryName,
+              payeeName,
+              notes,
+              pendingOrCleared,
+              accountName,
+              transferAccountName,
+              amount,
+            ] = parsed[i];
+            validateLine(parsed[i], i);
+            const account = await manager.findOne(Account, { name: accountName });
+            let transferAccount: Account;
+            if (notEmpty(transferAccountName)) {
+              transferAccount = await manager.findOne(Account, { name: transferAccountName });
+            }
+            // Doesn't find account with name or trasferAccountName, panic.
+            if (!account || (notEmpty(transferAccountName) && isEmpty(transferAccount))) {
+              throw new Error(
+                `Account with name "${accountName}" or "${transferAccountName}" doesn't exist. Stop and undo everything. Please check and create the account and then try again.`,
+              );
+            }
+            const numeral = Number(amount.replace(/\,/g, ''));
+            let type: TransactionType =
+              numeral < 0 ? TransactionType.Credit : TransactionType.Debit;
+            const status: TransactionStatus =
+              pendingOrCleared === 'Cleared'
+                ? TransactionStatus.Cleared
+                : TransactionStatus.Pending;
+
+            // Handler transfers.
+            if (notEmpty(transferAccountName)) {
+              type = TransactionType.Transfer;
+              if (numeral < 0) {
+                transferToAccount = await manager.findOne(Account, { name: transferAccountName });
+              } else if (numeral > 0) {
+                transferFromAccount = await manager.findOne(Account, { name: transferAccountName });
+              }
+              if (!foundTransfer) {
+                foundTransfer = true;
+              } else if (foundTransfer) {
+                foundTransfer = false;
+              }
+            }
+
+            if (!foundTransfer) {
+              // TODO: use entity manager.
+              await addOrEditTransaction(
+                type,
+                Math.abs(numeral),
+                account.id,
+                moment(date).toDate(),
+                status,
+                transferFromAccount ? transferFromAccount.id : undefined,
+                transferToAccount ? transferToAccount.id : undefined,
                 categoryName,
                 payeeName,
-                notes,
-                pendingOrCleared,
-                accountName,
-                transferAccountName,
-                amount,
-              ] = parsed[i];
-              validateLine(parsed[i], i);
-              const account = await db.accounts.get({ name: accountName });
-              let transferAccount: IAccount;
-              if (notEmpty(transferAccountName)) {
-                transferAccount = await db.accounts.get({ name: transferAccountName });
-              }
-              // Doesn't find account with name or trasferAccountName, panic.
-              if (!account || (notEmpty(transferAccountName) && isEmpty(transferAccount))) {
-                throw new Error(
-                  `Account with name "${accountName}" or "${transferAccountName}" doesn't exist. Stop and undo everything. Please check and create the account and then try again.`,
-                );
-              }
-              const numeral = Number(amount.replace(/\,/g, ''));
-              let type: TransactionType =
-                numeral < 0 ? TransactionType.Credit : TransactionType.Debit;
-              const status: TransactionStatus =
-                pendingOrCleared === 'Cleared'
-                  ? TransactionStatus.Cleared
-                  : TransactionStatus.Pending;
-
-              // Handler transfers.
-              if (notEmpty(transferAccountName)) {
-                type = TransactionType.Transfer;
-                if (numeral < 0) {
-                  transferToAccount = await db.accounts.get({ name: transferAccountName });
-                } else if (numeral > 0) {
-                  transferFromAccount = await db.accounts.get({ name: transferAccountName });
-                }
-                if (!foundTransfer) {
-                  foundTransfer = true;
-                } else if (foundTransfer) {
-                  foundTransfer = false;
-                }
-              }
-
-              if (!foundTransfer) {
-                await addOrEditTransaction(
-                  type,
-                  Math.abs(numeral),
-                  account.id,
-                  moment(date).toDate(),
-                  status,
-                  transferFromAccount ? transferFromAccount.id : undefined,
-                  transferToAccount ? transferToAccount.id : undefined,
-                  categoryName,
-                  payeeName,
-                  true,
-                  notes || description,
-                  undefined, // should sync
-                  false, // should sync
-                );
-              }
-              localLog(`Done ${i}/${parsed.length - 1}.`);
+                true,
+                notes || description,
+                undefined, // should sync
+                false, // should sync
+              );
             }
-          },
-        );
+            localLog(`Done ${i}/${parsed.length - 1}.`);
+          }
+        });
 
         // Sync after bulk import.
         await rootStore.transaction.freshLoad();
-        await rootStore.category.sync();
-        await rootStore.payee.sync();
-        await rootStore.account.sync();
+        await rootStore.category.freshLoad();
+        await rootStore.payee.freshLoad();
+        await rootStore.account.freshLoad();
       } else {
         localLog(`Do not open any file.`);
       }

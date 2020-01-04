@@ -1,5 +1,6 @@
 const rules = require('./webpack.rules');
 const plugins = require('./webpack.plugins');
+const path = require('path');
 
 rules.push({
   test: /\.css$/,
@@ -18,5 +19,12 @@ module.exports = {
   plugins: plugins,
   resolve: {
     extensions: ['.js', '.ts', '.jsx', '.tsx', '.css', '.less'],
+    // alias: {
+    //   typeorm: path.resolve(__dirname, '../node_modules/typeorm/typeorm-model-shim'),
+    // },
+  },
+  externals: {
+    typeorm: "require('typeorm')",
+    sqlite3: "require('sqlite3')",
   },
 };

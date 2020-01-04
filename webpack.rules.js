@@ -17,11 +17,13 @@ module.exports = [
   {
     test: /\.tsx?$/,
     exclude: /(node_modules|.webpack)/,
-    loaders: [{
-      loader: 'ts-loader',
-      options: {
-        transpileOnly: true
-      }
-    }]
+    loaders: [
+      {
+        loader: 'ts-loader',
+        options: {
+          transpileOnly: true,
+        },
+      },
+    ],
   },
 ];

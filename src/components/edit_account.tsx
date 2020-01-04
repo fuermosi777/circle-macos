@@ -1,8 +1,8 @@
 import * as React from 'react';
+import { getRepository as repo } from 'typeorm';
 
-import db from '../database';
-import { IAccount } from '../interface/account';
 import { Currency, CurrencyLabel } from '../interface/currency';
+import { Account } from '../models/account';
 import { rootStore } from '../stores/root_store';
 import { isEmpty, notEmpty } from '../utils/helper';
 import { logger } from '../utils/logger';
@@ -25,11 +25,11 @@ export const EditAccount = (props: IProps) => {
 
   React.useEffect(() => {
     let cancel = false;
-    const getAccount = async () => {
+    const getAccount = () => {
       if (cancel || isEmpty(props.accountId)) {
         return;
       }
-      const account = await db.accounts.get(props.accountId);
+      const account = rootStore.account.data.find((item) => item.id === props.accountId);
       setName(account.name);
       setBalance(String(account.balance));
       setCurrency(account.currency);
@@ -54,22 +54,16 @@ export const EditAccount = (props: IProps) => {
 
   async function handleDone() {
     try {
-      let account: IAccount;
-      if (props.accountId) {
-        account = await db.accounts.get(props.accountId);
-        account.name = name;
-        account.balance = Number(balance);
-        account.currency = currency;
-        account.isCredit = isCredit;
-      } else {
-        account = {
-          name,
-          balance: Number(balance),
-          currency,
-          isCredit,
-        };
-      }
+      const account: Account = notEmpty(props.accountId)
+        ? await repo(Account).findOne(props.accountId)
+        : new Account();
+
+      account.name = name;
+      account.balance = Number(balance);
+      account.currency = currency;
+      account.isCredit = isCredit;
       await rootStore.account.put(account);
+
       props.onCancel();
     } catch (err) {
       logger.error(err);

@@ -20,9 +20,19 @@
     background-color: var(--main-bg);
     box-shadow: 0 1px 1px var(--button-shadow);
     z-index: 100;
+    .option-group {
+    }
+    .option-divider {
+      height: 1px;
+      background-color: var(--sub-bg);
+    }
     .option-label {
       cursor: default;
       padding: 3px 8px 4px;
+
+      &:hover {
+        background-color: var(--sub-bg);
+      }
     }
   }
 }

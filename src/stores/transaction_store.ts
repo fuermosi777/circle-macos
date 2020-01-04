@@ -1,18 +1,18 @@
 import { List } from 'immutable';
 import { computed, flow, observable } from 'mobx';
 import moment from 'moment';
+import { FindManyOptions, getRepository as repo } from 'typeorm';
 
-import db from '../database';
 import { SideItemType, kAllAccountsIndex } from '../interface/app';
-import { ITransactionInstance } from '../interface/transaction';
+import { Transaction } from '../models/transaction';
 import { formatDate } from '../utils/format';
-import { isEmpty, notEmpty } from '../utils/helper';
+import { isEmpty } from '../utils/helper';
 import { logger } from '../utils/logger';
 import { RootStore } from './root_store';
 
 interface IGroup {
   date: Date;
-  transactions: ITransactionInstance[];
+  transactions: Transaction[];
 }
 
 const kDefaultPageSize = 50;
@@ -29,7 +29,7 @@ export class TransactionStore {
   }
 
   @observable.ref
-  data: List<ITransactionInstance> = List();
+  data: List<Transaction> = List();
 
   freshLoad = flow(function*(this: TransactionStore) {
     try {
@@ -40,17 +40,14 @@ export class TransactionStore {
     }
   });
 
-  partialLoad = flow(function*(this: TransactionStore, id: number) {
+  reload = flow(function*(this: TransactionStore) {
     try {
-      const transaction = yield db.transactions.get(id);
-      if (isEmpty(transaction)) {
-        this.data = this.data.filterNot((transaction) => transaction.id === id);
-      } else {
-        let indexToReplace = this.data.findIndex((transaction) => transaction.id === id);
-        if (indexToReplace > -1) {
-          this.data = this.data.set(indexToReplace, transaction);
-        }
-      }
+      this.clear();
+
+      this.offset = 0;
+      this.limit = this.data.size;
+      yield this.loadMore();
+      this.limit = 0;
     } catch (err) {
       throw err;
     }
@@ -62,45 +59,26 @@ export class TransactionStore {
     }
     this.isLoading = true;
     try {
-      let query: any = db.transactions;
-      let selectedSideItem = this.rootStore.app.selectedSideItem;
+      const query: FindManyOptions<Transaction> = {
+        skip: this.offset,
+        take: this.limit,
+        relations: ['account', 'payee', 'category', 'from', 'to', 'sibling'],
+        order: {
+          [this.order]: 'DESC',
+        },
+      };
+      const selectedSideItem = this.rootStore.app.selectedSideItem;
       if (
         selectedSideItem.type === SideItemType.Account &&
         selectedSideItem.index > kAllAccountsIndex
       ) {
-        query = query.where({ accountId: selectedSideItem.index });
+        query.where = { accountId: selectedSideItem.index };
       }
-      query = query
-        .orderBy(this.order)
-        .reverse()
-        .offset(this.offset)
-        .limit(this.limit);
+      console.log(query);
+      const transactions = yield repo(Transaction).find(query);
 
-      const transactions = yield query.toArray();
-      const instances: ITransactionInstance[] = [];
-      for (const transaction of transactions) {
-        const instance: ITransactionInstance = {
-          ...transaction,
-          account: yield db.accounts.get(transaction.accountId),
-        };
-        if (notEmpty(transaction.payeeId)) {
-          instance.payee = yield db.payees.get(transaction.payeeId);
-        }
-        if (notEmpty(transaction.from)) {
-          instance.fromAccount = yield db.accounts.get(transaction.from);
-        }
-        if (notEmpty(transaction.to)) {
-          instance.toAccount = yield db.accounts.get(transaction.to);
-        }
-        if (notEmpty(transaction.categoryId)) {
-          instance.category = yield db.categories.get(transaction.categoryId);
-        }
-
-        instances.push(instance);
-      }
-
-      this.data = this.data.concat(List(instances));
-      this.offset += instances.length;
+      this.data = this.data.concat(List(transactions));
+      this.offset += transactions.length;
     } catch (err) {
       throw err;
     } finally {
@@ -110,15 +88,15 @@ export class TransactionStore {
 
   delete = flow(function*(this: TransactionStore, id: number) {
     try {
-      yield db.transactions.delete(id);
-      yield this.partialLoad(id);
+      yield repo(Transaction).delete(id);
+      yield this.reload();
     } catch (err) {
       throw err;
     }
   });
 
   @computed
-  get groupedData(): Array<string | ITransactionInstance> {
+  get groupedData(): Array<string | Transaction> {
     const uniqueDate = new Map<string, IGroup>();
     const groups: IGroup[] = [];
 
@@ -143,7 +121,7 @@ export class TransactionStore {
         return -1;
       }
     });
-    const result: Array<string | ITransactionInstance> = [];
+    const result: Array<string | Transaction> = [];
     for (const group of groups) {
       result.push(formatDate(group.date));
       for (const transaction of group.transactions) {

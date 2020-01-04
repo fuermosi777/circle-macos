@@ -12,6 +12,7 @@
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
     "target": "ES5",
     "paths": {
       "*": ["node_modules/*"]

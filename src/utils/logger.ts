@@ -5,15 +5,15 @@ class Logger {
   }
 
   error(...message: any) {
-    console.error(message);
+    console.error(...message);
   }
 
   info(...message: any) {
-    console.info(message);
+    console.info(...message);
   }
 
   warn(...message: any) {
-    console.warn(message);
+    console.warn(...message);
   }
 }
 

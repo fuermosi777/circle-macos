@@ -2,12 +2,14 @@ import { remote } from 'electron';
 import { observer } from 'mobx-react';
 import * as React from 'react';
 import * as Icon from 'react-feather';
+import { getRepository as repo } from 'typeorm';
 
-import db from '../database';
 import { ISideItem, SideItemType, kAllAccountsIndex } from '../interface/app';
+import { Account } from '../models/account';
+import { Transaction } from '../models/transaction';
 import { rootStore } from '../stores/root_store';
 import { stopEvent } from '../utils/component_utils';
-import { notEmpty } from '../utils/helper';
+import { deleteTransaction } from '../utils/operations';
 import { EditAccount } from './edit_account';
 import { EditTransaction } from './edit_transaction';
 import { ImportFlow } from './import_flow';
@@ -150,25 +152,32 @@ export const Side = observer(() => {
           if (result.response !== 0 /* Delete */) {
             return;
           }
-          const transactions = await db.transactions.where({ accountId }).toArray();
-          if (transactions.length > 0) {
+          const account = await repo(Account).findOne(accountId, {
+            relations: ['transactions'],
+          });
+          if (account.transactions.length > 0) {
             result = await remote.dialog.showMessageBox({
               type: 'question',
-              message: `Will also delete ${transactions.length} transactions associated with this account.`,
+              message: `Will also delete ${account.transactions.length} transactions associated with this account.`,
               buttons: ['OK', 'Cancel'],
             });
             if (result.response !== 0) {
               return;
             }
             // Start deletion.
-            for (const transaction of transactions) {
-              await rootStore.transaction.delete(transaction.id);
+            for (const transaction of account.transactions) {
+              await deleteTransaction(transaction.id, /* sync= */ false);
             }
-            await rootStore.account.delete(accountId);
+
+            await repo(Account).delete(accountId);
+
+            await rootStore.transaction.reload();
           } else {
             // No associated transactions, just delete it.
-            await rootStore.account.delete(accountId);
+            await repo(Account).delete(accountId);
           }
+
+          await rootStore.account.freshLoad();
         },
       }),
     );
@@ -177,10 +186,6 @@ export const Side = observer(() => {
   }
 
   function getBalance(accountId: number): string {
-    let balance = rootStore.account.runningBalance.get(accountId, '');
-    if (notEmpty(balance)) {
-      return (balance as Dinero.Dinero).toFormat('$0,0.00');
-    }
     return '';
   }
 

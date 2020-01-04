@@ -1,11 +1,13 @@
 import { observer } from 'mobx-react';
 import * as React from 'react';
+import { getRepository as repo } from 'typeorm';
 
-import db from '../database';
-import { IAccount } from '../interface/account';
-import { TransactionStatus, TransactionType } from '../interface/transaction';
+import { Account } from '../models/account';
+import { CategoryType } from '../models/category';
+import { Payee } from '../models/payee';
+import { Transaction, TransactionStatus, TransactionType } from '../models/transaction';
 import { rootStore } from '../stores/root_store';
-import { isEmpty } from '../utils/helper';
+import { isEmpty, notEmpty } from '../utils/helper';
 import { logger } from '../utils/logger';
 import { addOrEditTransaction } from '../utils/operations';
 import { Button } from './button';
@@ -36,6 +38,8 @@ export const EditTransaction = observer((props: IProps) => {
   const [status, setStatus] = React.useState(TransactionStatus.Pending);
   const [note, setNote] = React.useState('');
 
+  const [quickCategories, setQuickCategories] = React.useState([]);
+
   React.useEffect(() => {
     let cancel = false;
     if (rootStore.account.data.length >= 0 && !props.transactionId) {
@@ -46,7 +50,18 @@ export const EditTransaction = observer((props: IProps) => {
       if (cancel || isEmpty(props.transactionId)) {
         return;
       }
-      const transaction = await db.transactions.get(props.transactionId);
+      const transaction = await repo(Transaction).findOne(props.transactionId, {
+        relations: [
+          'account',
+          'payee',
+          'payee.categories',
+          'payee.accounts',
+          'category',
+          'from',
+          'to',
+          'sibling',
+        ],
+      });
       if (!transaction) {
         logger.warn(
           `Try to load a transaction for editing but did not find it: ${props.transactionId}`,
@@ -54,31 +69,22 @@ export const EditTransaction = observer((props: IProps) => {
         return;
       }
       // Found a transaction, load to states.
-      if (transaction.payeeId) {
-        const payee = await rootStore.payee.get({ id: transaction.payeeId });
+      if (transaction.payee) {
         setType(transaction.type);
         setAmount(String(transaction.amount));
-        if (payee) {
-          setPayeeName(payee.name);
-        }
+        setPayeeName(transaction.payee.name);
+        setQuickCategories(transaction.payee.categories.map((cate) => cate.name));
       }
       if (transaction.from) {
-        const fromTransaction = await db.transactions.get(transaction.from);
-        if (fromTransaction) {
-          setFrom(fromTransaction.id);
-        }
+        setFrom(transaction.from.id);
       }
       if (transaction.to) {
-        const toTransaction = await db.transactions.get(transaction.to);
-        if (toTransaction) {
-          setTo(toTransaction.id);
-        }
+        setTo(transaction.to.id);
       }
-      const category = await rootStore.category.get({ id: transaction.categoryId });
-      if (category) {
-        setCategoryName(category.name);
+      if (transaction.category) {
+        setCategoryName(transaction.category.name);
       }
-      setAccountId(transaction.accountId);
+      setAccountId(transaction.account.id);
       setDate(transaction.date);
       setStatus(transaction.status);
       setNote(transaction.note);
@@ -99,8 +105,16 @@ export const EditTransaction = observer((props: IProps) => {
   }
 
   function isDoneClickable() {
-    if (type !== TransactionType.Transfer) {
+    if (amount === '0') {
+      return false;
+    }
+    if (type === TransactionType.Credit) {
       if (!amount || !payeeName || !categoryName || !accountId || !date) {
+        return false;
+      }
+    }
+    if (type === TransactionType.Debit) {
+      if (!amount || !categoryName || !accountId || !date) {
         return false;
       }
     }
@@ -135,6 +149,21 @@ export const EditTransaction = observer((props: IProps) => {
     }
   }
 
+  async function handlePayeeNameChange(name: string) {
+    try {
+      setPayeeName(name);
+      const payee = await repo(Payee).findOne({
+        where: { name },
+        relations: ['categories', 'accounts'],
+      });
+      if (notEmpty(payee)) {
+        setQuickCategories(payee.categories.map((cate) => cate.name));
+      }
+    } catch (err) {
+      logger.error(err);
+    }
+  }
+
   return (
     <div className='EditTransaction'>
       <Radio selectedValue={type} onChange={setType}>
@@ -143,26 +172,35 @@ export const EditTransaction = observer((props: IProps) => {
         <Radio.Option label='Transfer' value={TransactionType.Transfer} />
       </Radio>
       <Gap size={15} />
+
       <Input placeholder='Amount' value={amount} onChange={handleAmountChange} />
       <Gap size={15} />
-      {type === TransactionType.Transfer ? (
-        <Select onChange={(value) => setFrom(Number(value))} value={from} label='From'>
-          {rootStore.account.data.map((account: IAccount) => (
-            <Select.Option key={account.id} value={account.id} label={account.name} />
-          ))}
-        </Select>
-      ) : (
-        <Input
-          placeholder='Payee'
-          value={payeeName}
-          onChange={setPayeeName}
-          options={rootStore.payee.data.map((pe) => pe.name)}
-        />
+
+      {type === TransactionType.Transfer && (
+        <>
+          <Select onChange={(value) => setFrom(Number(value))} value={from} label='From'>
+            {rootStore.account.data.map((account: Account) => (
+              <Select.Option key={account.id} value={account.id} label={account.name} />
+            ))}
+          </Select>
+          <Gap size={15} />
+        </>
       )}
-      <Gap size={15} />
+      {type === TransactionType.Credit && (
+        <>
+          <Input
+            placeholder='Payee'
+            value={payeeName}
+            onChange={handlePayeeNameChange}
+            options={rootStore.payee.data.map((pe) => pe.name)}
+          />
+          <Gap size={15} />
+        </>
+      )}
+
       {type === TransactionType.Transfer ? (
         <Select onChange={(value) => setTo(Number(value))} value={to} label='To'>
-          {rootStore.account.data.map((account: IAccount) => (
+          {rootStore.account.data.map((account: Account) => (
             <Select.Option key={account.id} value={account.id} label={account.name} />
           ))}
         </Select>
@@ -171,7 +209,16 @@ export const EditTransaction = observer((props: IProps) => {
           placeholder='Cateogry'
           value={categoryName}
           onChange={setCategoryName}
-          options={rootStore.category.data.map((cat) => cat.name)}
+          options={rootStore.category.data
+            // Only want categories for a certain type.
+            .filter(
+              (cat) =>
+                cat.type ===
+                (type === TransactionType.Credit ? CategoryType.Expense : CategoryType.Income),
+            )
+            .map((cat) => cat.name)}
+          // Only show quick option in credit.
+          quickOptions={type === TransactionType.Credit && quickCategories}
         />
       )}
       {type !== TransactionType.Transfer && (
@@ -182,7 +229,7 @@ export const EditTransaction = observer((props: IProps) => {
               setAccountId(Number(value));
             }}
             value={accountId}>
-            {rootStore.account.data.map((account: IAccount) => (
+            {rootStore.account.data.map((account: Account) => (
               <Select.Option key={account.id} value={account.id} label={account.name} />
             ))}
           </Select>

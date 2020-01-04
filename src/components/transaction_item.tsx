@@ -1,13 +1,14 @@
 import Dinero from 'dinero.js';
 import * as React from 'react';
 
-import { ITransactionInstance, TransactionType } from '../interface/transaction';
+import { Transaction, TransactionType } from '../models/transaction';
 import { isEmpty, notEmpty } from '../utils/helper';
+import { logger } from '../utils/logger';
 import { toDinero } from '../utils/money';
 
 interface IProps {
   // Group header or transaction item.
-  data: string | ITransactionInstance;
+  data: string | Transaction;
   onContextMenu?(transactionId: number): void;
 }
 
@@ -23,20 +24,25 @@ export const TransactionItem = (props: IProps) => {
     if (typeof props.data === 'string') {
       return '';
     }
-    if (isEmpty(props.data.siblingId)) {
-      return props.data.payee.name;
+    if (isEmpty(props.data.sibling) && notEmpty(props.data.payee)) {
+      // TODO: fix "income".
+      return props.data.payee.name || 'Income';
     } else if (props.data.type === TransactionType.Credit) {
-      if (notEmpty(props.data.toAccount)) {
-        return `Transfer to ${props.data.toAccount.name}`;
+      if (notEmpty(props.data.to)) {
+        return `Transfer to ${props.data.to.name}`;
       }
     } else if (props.data.type === TransactionType.Debit) {
-      if (notEmpty(props.data.fromAccount)) {
-        return `Transfer from ${props.data.fromAccount.name}`;
+      if (notEmpty(props.data.from)) {
+        return `Transfer from ${props.data.from.name}`;
       }
     }
   }
   function getAmount(): string {
     if (typeof props.data === 'string') {
+      return '';
+    }
+    if (isEmpty(props.data.account)) {
+      logger.warn(`Data's account is empty.`);
       return '';
     }
     let amount = toDinero(props.data.amount, props.data.account.currency);

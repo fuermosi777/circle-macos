@@ -1,9 +1,22 @@
-import { IPayee } from '../interface/payee';
-import { BaseDbStore } from './base_db_store';
+import { flow, observable } from 'mobx';
+import { getRepository as repo } from 'typeorm';
+
+import { Payee } from '../models/payee';
 import { RootStore } from './root_store';
 
-export class PayeeStore extends BaseDbStore<IPayee> {
+export class PayeeStore {
+  @observable
+  data: Payee[] = [];
+
   constructor(public rootStore: RootStore) {
-    super('payees');
+    this.freshLoad();
   }
+
+  freshLoad = flow(function*() {
+    try {
+      this.data = yield repo(Payee).find();
+    } catch (err) {
+      throw err;
+    }
+  });
 }

@@ -2,9 +2,9 @@ import { remote } from 'electron';
 import { observer } from 'mobx-react';
 import * as React from 'react';
 
-import db from '../database';
 import { rootStore } from '../stores/root_store';
-import { isNearBottom, isNearTop, throttle } from '../utils/helper';
+import { isNearBottom, throttle } from '../utils/helper';
+import { deleteTransaction } from '../utils/operations';
 import { EditTransaction } from './edit_transaction';
 import { TransactionItem } from './transaction_item';
 
@@ -39,14 +39,7 @@ export const TransactionList = observer((props: IProps) => {
             buttons: ['Delete', 'Cancel'],
           });
           if (result.response === 0 /* Delete */) {
-            const transaction = await db.transactions.get(transactionId);
-            if (!transaction) {
-              return;
-            }
-            if (transaction.siblingId) {
-              await rootStore.transaction.delete(transaction.siblingId);
-            }
-            await rootStore.transaction.delete(transaction.id);
+            await deleteTransaction(transactionId);
           }
         },
       }),

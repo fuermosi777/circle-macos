@@ -26,7 +26,8 @@
     "no-submodule-imports": [
       true,
       "src"
-    ]
+    ],
+    "member-ordering": false
   },
   "rulesDirectory": []
 }
