@@ -24,5 +24,5 @@ export class Account {
     (type) => Transaction,
     (transaction) => transaction.account,
   )
-  transactions: Transaction[];
+  transactions?: Transaction[];
 }

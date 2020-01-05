@@ -5,6 +5,7 @@ import { AppStore } from './app_store';
 import { CategoryStore } from './category_store';
 import { ModalStore } from './modal_store';
 import { PayeeStore } from './payee_store';
+import { ProfileStore } from './profile_store';
 import { TransactionStore } from './transaction_store';
 
 // configure({ enforceActions: 'strict' });
@@ -16,6 +17,7 @@ class RootStore {
   payee: PayeeStore;
   category: CategoryStore;
   transaction: TransactionStore;
+  profile: ProfileStore;
 
   constructor() {
     this.modal = new ModalStore(this);
@@ -24,6 +26,7 @@ class RootStore {
     this.payee = new PayeeStore(this);
     this.category = new CategoryStore(this);
     this.transaction = new TransactionStore(this);
+    this.profile = new ProfileStore(this);
   }
 }
 

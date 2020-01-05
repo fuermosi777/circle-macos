@@ -6,9 +6,9 @@ import { getRepository as repo } from 'typeorm';
 
 import { ISideItem, SideItemType, kAllAccountsIndex } from '../interface/app';
 import { Account } from '../models/account';
-import { Transaction } from '../models/transaction';
 import { rootStore } from '../stores/root_store';
 import { stopEvent } from '../utils/component_utils';
+import { toDinero } from '../utils/money';
 import { deleteTransaction } from '../utils/operations';
 import { EditAccount } from './edit_account';
 import { EditTransaction } from './edit_transaction';
@@ -114,20 +114,6 @@ export const Side = observer(() => {
     menu.popup();
   }
 
-  function handleMoreClick() {
-    const menu = new remote.Menu();
-    menu.append(
-      new remote.MenuItem({
-        label: 'Import',
-        click() {
-          rootStore.modal.openModal(<ImportFlow onCancel={() => rootStore.modal.closeModal()} />);
-        },
-      }),
-    );
-
-    menu.popup();
-  }
-
   function handleContextMenu(accountId: number) {
     const menu = new remote.Menu();
     menu.append(
@@ -185,8 +171,22 @@ export const Side = observer(() => {
     menu.popup();
   }
 
-  function getBalance(accountId: number): string {
-    return '';
+  function getBalance(account: Account): string {
+    if (
+      !rootStore.account.totalCredit.has(account.id) ||
+      !rootStore.account.totalDebit.has(account.id)
+    ) {
+      return '';
+    }
+    let result = toDinero(account.balance, account.currency);
+    const totalCredit = rootStore.account.totalCredit.get(account.id);
+    const totalDebit = rootStore.account.totalDebit.get(account.id);
+    if (account.isCredit) {
+      result = result.add(totalCredit).subtract(totalDebit);
+    } else {
+      result = result.subtract(totalCredit).add(totalDebit);
+    }
+    return result.toFormat('$0,0.00');
   }
 
   function handleSideItemSelect(sideItem: ISideItem) {
@@ -229,7 +229,7 @@ export const Side = observer(() => {
               icon={<Icon.CreditCard />}
               iconClassName='account'
               label={account.name}
-              info={getBalance(account.id)}
+              info={getBalance(account)}
               onContextMenu={() => handleContextMenu(account.id)}
               onSelect={() => handleSideItemSelect(sideItem)}
               selected={matchSelectedSideItem(sideItem)}
@@ -240,7 +240,6 @@ export const Side = observer(() => {
 
       <div className='side-bottom'>
         <InvisibleButton icon={<Icon.Plus />} label='New' onClick={handleAddNewClick} />
-        <InvisibleButton icon={<Icon.MoreHorizontal />} label='More' onClick={handleMoreClick} />
       </div>
       <SideBorder />
     </div>

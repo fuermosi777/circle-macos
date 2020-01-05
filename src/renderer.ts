@@ -7,6 +7,9 @@ import ReactDOM from 'react-dom';
 
 import { getConnection, initDatabase } from './utils/database';
 import { logger } from './utils/logger';
+import profileManager from './utils/profile';
+
+profileManager.prepareLocalProfile();
 
 getConnection()
   .then(async (connection) => {

@@ -1,6 +1,3 @@
-import * as path from 'path';
-
-import { remote } from 'electron';
 import { Connection, createConnection, getRepository as repo } from 'typeorm';
 
 import { Account } from '../models/account';
@@ -8,18 +5,16 @@ import { Category, CategoryType } from '../models/category';
 import { Payee } from '../models/payee';
 import { Transaction } from '../models/transaction';
 import { logger } from './logger';
-
-const kDatabaseName = 'db.sqlite';
-const databasePath = path.join(remote.app.getPath('userData'), kDatabaseName);
+import profileManager from './profile';
 
 export function getConnection() {
-  logger.info(`Database location: ${databasePath}`);
+  logger.info(`Database location: ${profileManager.profile.databasePath}`);
   return createConnection({
     type: 'sqlite',
     synchronize: true,
-    logging: true,
+    logging: false,
     logger: 'simple-console',
-    database: databasePath,
+    database: profileManager.profile.databasePath,
     entities: [Category, Account, Transaction, Payee],
   });
 }

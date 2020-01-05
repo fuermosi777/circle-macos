@@ -74,7 +74,6 @@ export class TransactionStore {
       ) {
         query.where = { accountId: selectedSideItem.index };
       }
-      console.log(query);
       const transactions = yield repo(Transaction).find(query);
 
       this.data = this.data.concat(List(transactions));

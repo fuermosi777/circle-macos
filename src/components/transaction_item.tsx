@@ -24,9 +24,14 @@ export const TransactionItem = (props: IProps) => {
     if (typeof props.data === 'string') {
       return '';
     }
-    if (isEmpty(props.data.sibling) && notEmpty(props.data.payee)) {
-      // TODO: fix "income".
-      return props.data.payee.name || 'Income';
+    if (isEmpty(props.data.sibling)) {
+      // Non-transfer transactions.
+      if (props.data.type === TransactionType.Debit) {
+        return 'Income';
+      }
+      if (notEmpty(props.data.payee)) {
+        return props.data.payee.name;
+      }
     } else if (props.data.type === TransactionType.Credit) {
       if (notEmpty(props.data.to)) {
         return `Transfer to ${props.data.to.name}`;

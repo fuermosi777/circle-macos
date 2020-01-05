@@ -3,22 +3,25 @@ import { flow, observable, reaction } from 'mobx';
 import { Not, getRepository as repo } from 'typeorm';
 
 import { Account } from '../models/account';
+import { TransactionType } from '../models/transaction';
 import { logger } from '../utils/logger';
+import { toDinero } from '../utils/money';
 import { RootStore } from './root_store';
+
+type AccountInfo = Map<number, Dinero.Dinero>;
 
 export class AccountStore {
   @observable
   data: Account[] = [];
 
+  @observable
+  totalCredit: AccountInfo = Map();
+
+  @observable
+  totalDebit: AccountInfo = Map();
+
   constructor(public rootStore: RootStore) {
     this.freshLoad();
-
-    reaction(
-      () => this.data.map((account) => account.balance),
-      () => {
-        this.updateRuningBalance();
-      },
-    );
   }
 
   freshLoad = flow(function*(this: AccountStore) {
@@ -27,43 +30,41 @@ export class AccountStore {
         order: {
           name: 'ASC',
         },
+        relations: ['transactions'],
       });
+      const [totalCredit, totalDebit] = this.updateRuningBalance();
+      this.totalCredit = totalCredit;
+      this.totalDebit = totalDebit;
     } catch (err) {
       logger.error(err);
     }
   });
 
-  updateRuningBalance = flow(function*(this: AccountStore) {
+  private updateRuningBalance(): [AccountInfo, AccountInfo] {
     try {
-      let balanceMap: Map<number, Dinero.Dinero> = Map();
-      // const transactions = yield db.transactions.toArray();
-      // for (const account of this.data) {
-      //   let rb = account.balance;
-      //   for (const transaction of transactions) {
-      //     if (transaction.accountId !== account.id) {
-      //       continue;
-      //     }
-      //     if (account.isCredit) {
-      //       if (transaction.type === TransactionType.Credit) {
-      //         rb += transaction.amount;
-      //       } else if (transaction.type === TransactionType.Debit) {
-      //         rb -= transaction.amount;
-      //       }
-      //     } else {
-      //       if (transaction.type === TransactionType.Credit) {
-      //         rb -= transaction.amount;
-      //       } else if (transaction.type === TransactionType.Debit) {
-      //         rb += transaction.amount;
-      //       }
-      //     }
-      //   }
-      //   balanceMap = balanceMap.set(account.id, toDinero(rb, account.currency));
-      // }
-      // this.runningBalance = balanceMap;
+      let totalCredit: AccountInfo = Map();
+      let totalDebit: AccountInfo = Map();
+      for (const account of this.data) {
+        let credit = 0;
+        let debit = 0;
+        for (const transaction of account.transactions) {
+          if (transaction.type === TransactionType.Credit) {
+            credit += transaction.amount;
+          } else if (transaction.type === TransactionType.Debit) {
+            debit += transaction.amount;
+          }
+        }
+        totalCredit = totalCredit.set(account.id, toDinero(credit, account.currency));
+        totalDebit = totalDebit.set(account.id, toDinero(debit, account.currency));
+
+        // Don't need this any more.
+        delete account.transactions;
+      }
+      return [totalCredit, totalDebit];
     } catch (err) {
       throw err;
     }
-  });
+  }
 
   private async validate(account: Account): Promise<void> {
     const duplicate = await repo(Account).findOne({ name: account.name, id: Not(account.id) });
