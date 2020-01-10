@@ -60,7 +60,7 @@ export class Transaction {
   @JoinColumn()
   sibling?: Transaction;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'integer' })
   status: TransactionStatus;
 
   @Column()

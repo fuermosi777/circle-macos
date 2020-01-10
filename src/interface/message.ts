@@ -3,4 +3,6 @@ export const enum Message {
   RequestNewTransaction,
   RequestImport,
   RequestViewPreferences,
+  RequestMarkCleared,
+  RequestMarkPending,
 }

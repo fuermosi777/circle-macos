@@ -9,13 +9,16 @@ export class CategoryStore {
   data: Category[];
 
   constructor(public rootStore: RootStore) {
-    this.freshLoad();
+    this.freshLoad(/* sync = */ false);
   }
 
-  freshLoad = flow(function*(this: CategoryStore) {
+  freshLoad = flow(function*(this: CategoryStore, sync = true) {
     try {
       const categories = yield repo(Category).find();
       this.data = categories;
+      if (sync) {
+        this.rootStore.sync.up();
+      }
     } catch (err) {
       throw err;
     }

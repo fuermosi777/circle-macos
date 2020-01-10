@@ -148,8 +148,8 @@ export const ImportFlow = (props: IProps) => {
                 payeeName,
                 true,
                 notes || description,
-                undefined, // should sync
-                false, // should sync
+                /* transactionId = */ undefined,
+                /* load = */ false,
               );
             }
             localLog(`Done ${i}/${parsed.length - 1}.`);

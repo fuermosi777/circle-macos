@@ -1,3 +1,6 @@
+import { Currency } from './currency';
+// Never delete fields for compatibility.
 export interface IProfile {
-  databasePath: string;
+  showBalanceOnSide: boolean;
+  mainCurrency: Currency;
 }

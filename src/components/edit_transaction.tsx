@@ -15,6 +15,7 @@ import { Checkbox } from './checkbox';
 import { DatePicker } from './date_picker';
 import { Gap } from './gap';
 import { Input } from './input';
+import { InputField } from './input_field';
 import { Radio } from './radio';
 import { Select } from './select';
 
@@ -166,64 +167,67 @@ export const EditTransaction = observer((props: IProps) => {
 
   return (
     <div className='EditTransaction'>
-      <Radio selectedValue={type} onChange={setType}>
-        <Radio.Option label='Expense' value={TransactionType.Credit} />
-        <Radio.Option label='Income' value={TransactionType.Debit} />
-        <Radio.Option label='Transfer' value={TransactionType.Transfer} />
-      </Radio>
-      <Gap size={15} />
+      <InputField>
+        <Radio selectedValue={type} onChange={setType}>
+          <Radio.Option label='Expense' value={TransactionType.Credit} />
+          <Radio.Option label='Income' value={TransactionType.Debit} />
+          <Radio.Option label='Transfer' value={TransactionType.Transfer} />
+        </Radio>
+      </InputField>
 
-      <Input placeholder='Amount' value={amount} onChange={handleAmountChange} />
-      <Gap size={15} />
+      <InputField>
+        <Input placeholder='Amount' value={amount} onChange={handleAmountChange} />
+      </InputField>
 
       {type === TransactionType.Transfer && (
-        <>
+        <InputField>
           <Select onChange={(value) => setFrom(Number(value))} value={from} label='From'>
             {rootStore.account.data.map((account: Account) => (
               <Select.Option key={account.id} value={account.id} label={account.name} />
             ))}
           </Select>
-          <Gap size={15} />
-        </>
+        </InputField>
       )}
       {type === TransactionType.Credit && (
-        <>
+        <InputField>
           <Input
             placeholder='Payee'
             value={payeeName}
             onChange={handlePayeeNameChange}
             options={rootStore.payee.data.map((pe) => pe.name)}
           />
-          <Gap size={15} />
-        </>
+        </InputField>
       )}
 
       {type === TransactionType.Transfer ? (
-        <Select onChange={(value) => setTo(Number(value))} value={to} label='To'>
-          {rootStore.account.data.map((account: Account) => (
-            <Select.Option key={account.id} value={account.id} label={account.name} />
-          ))}
-        </Select>
+        <InputField>
+          <Select onChange={(value) => setTo(Number(value))} value={to} label='To'>
+            {rootStore.account.data.map((account: Account) => (
+              <Select.Option key={account.id} value={account.id} label={account.name} />
+            ))}
+          </Select>
+        </InputField>
       ) : (
-        <Input
-          placeholder='Cateogry'
-          value={categoryName}
-          onChange={setCategoryName}
-          options={rootStore.category.data
-            // Only want categories for a certain type.
-            .filter(
-              (cat) =>
-                cat.type ===
-                (type === TransactionType.Credit ? CategoryType.Expense : CategoryType.Income),
-            )
-            .map((cat) => cat.name)}
-          // Only show quick option in credit.
-          quickOptions={type === TransactionType.Credit && quickCategories}
-        />
+        <InputField>
+          <Input
+            placeholder='Cateogry'
+            value={categoryName}
+            onChange={setCategoryName}
+            options={rootStore.category.data
+              // Only want categories for a certain type.
+              .filter(
+                (cat) =>
+                  cat.type ===
+                  (type === TransactionType.Credit ? CategoryType.Expense : CategoryType.Income),
+              )
+              .map((cat) => cat.name)}
+            // Only show quick option in credit.
+            quickOptions={type === TransactionType.Credit && quickCategories}
+          />
+        </InputField>
       )}
       {type !== TransactionType.Transfer && (
-        <>
-          <Gap size={15} />
+        <InputField>
           <Select
             onChange={(value: number) => {
               setAccountId(Number(value));
@@ -233,20 +237,25 @@ export const EditTransaction = observer((props: IProps) => {
               <Select.Option key={account.id} value={account.id} label={account.name} />
             ))}
           </Select>
-        </>
+        </InputField>
       )}
-      <Gap size={15} />
-      <DatePicker value={date} onChange={setDate} />
-      <Gap size={15} />
-      <Checkbox
-        isChecked={status === TransactionStatus.Cleared}
-        label='Cleared'
-        onChange={(isChecked) =>
-          setStatus(isChecked ? TransactionStatus.Cleared : TransactionStatus.Pending)
-        }
-      />
-      <Gap size={15} />
-      <Input placeholder='Add some notes' value={note} onChange={setNote} />
+
+      <InputField>
+        <DatePicker value={date} onChange={setDate} />
+      </InputField>
+
+      <InputField>
+        <Checkbox
+          isChecked={status === TransactionStatus.Cleared}
+          label='Cleared'
+          onChange={(isChecked) =>
+            setStatus(isChecked ? TransactionStatus.Cleared : TransactionStatus.Pending)
+          }
+        />
+      </InputField>
+      <InputField>
+        <Input placeholder='Add some notes' value={note} onChange={setNote} />
+      </InputField>
       <div className='button-group'>
         <Button label='Cancel' onClick={props.onCancel} />
         <Gap vertical size={10} />

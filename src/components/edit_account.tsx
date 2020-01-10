@@ -10,6 +10,7 @@ import { Button } from './button';
 import { Checkbox } from './checkbox';
 import { Gap } from './gap';
 import { Input } from './input';
+import { InputField } from './input_field';
 import { Select } from './select';
 
 interface IProps {
@@ -72,18 +73,24 @@ export const EditAccount = (props: IProps) => {
 
   return (
     <div className='EditAccount'>
-      <Input placeholder='Account Name' value={name} onChange={setName} />
-      <Gap size={15} />
-      <Input placeholder='Starting Balance' value={balance} onChange={handleBalanceChange} />
-      <Gap size={15} />
-      <Select onChange={(value: Currency) => setCurrency(value)} value={currency}>
-        {Object.keys(Currency).map((curr: keyof typeof Currency) => (
-          <Select.Option key={curr} value={curr} label={CurrencyLabel[curr]} />
-        ))}
-      </Select>
-      <Gap size={15} />
-      <Checkbox label='Credit Account' isChecked={isCredit} onChange={setCredit} />
-      <Gap size={15} />
+      <InputField>
+        <Input placeholder='Account Name' value={name} onChange={setName} />
+      </InputField>
+      <InputField>
+        <Input placeholder='Starting Balance' value={balance} onChange={handleBalanceChange} />
+      </InputField>
+      <InputField>
+        <Select onChange={(value: Currency) => setCurrency(value)} value={currency}>
+          {Object.keys(Currency).map((curr: keyof typeof Currency) => (
+            <Select.Option key={curr} value={curr} label={CurrencyLabel[curr]} />
+          ))}
+        </Select>
+      </InputField>
+
+      <InputField>
+        <Checkbox label='Credit Account' isChecked={isCredit} onChange={setCredit} />
+      </InputField>
+
       <div className='button-group'>
         <Button label='Cancel' onClick={props.onCancel} />
         <Gap vertical size={10} />

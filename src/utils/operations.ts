@@ -31,7 +31,7 @@ export async function addOrEditTransaction(
   note?: string,
   // If passing a transaction ID, then edit the existing one.
   transactionId?: number,
-  sync = true,
+  load = true,
 ) {
   try {
     if (type === TransactionType.Transfer) {
@@ -157,7 +157,7 @@ export async function addOrEditTransaction(
       await repo(Transaction).save(transaction);
     }
 
-    if (sync) {
+    if (load) {
       if (transactionId) {
         await rootStore.transaction.reload();
       } else {
@@ -171,7 +171,7 @@ export async function addOrEditTransaction(
   }
 }
 
-export async function deleteTransaction(id: number, sync = true) {
+export async function deleteTransaction(id: number) {
   try {
     const transaction = await repo(Transaction).findOne(id, {
       relations: ['sibling'],
@@ -191,14 +191,8 @@ export async function deleteTransaction(id: number, sync = true) {
       await repo(Transaction).save(sibling);
       await repo(Transaction).save(transaction);
       await repo(Transaction).delete(siblingId);
-      if (sync) {
-        await rootStore.transaction.reload();
-      }
     }
     await repo(Transaction).delete(transactionId);
-    if (sync) {
-      await rootStore.transaction.reload();
-    }
   } catch (err) {
     throw err;
   }

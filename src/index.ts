@@ -74,6 +74,29 @@ function buildMenu() {
       ],
     },
     {
+      label: 'Edit',
+      submenu: [
+        {
+          label: 'Mark Cleared',
+          accelerator: 'CmdOrCtrl+Shift+c',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.send(Message.RequestMarkCleared.toString());
+            }
+          },
+        },
+        {
+          label: 'Mark Pending',
+          accelerator: 'CmdOrCtrl+p',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.send(Message.RequestMarkPending.toString());
+            }
+          },
+        },
+      ],
+    },
+    {
       label: 'View',
       submenu: [
         {

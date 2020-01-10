@@ -344,3 +344,9 @@ export const CurrencyLabel = {
   ZMW: 'Zambian Kwacha',
   ZWL: 'Zimbabwean Dollar',
 };
+
+export interface IExchangeRawResult {
+  base: string;
+  rates: { [key: string]: number };
+  date: string;
+}

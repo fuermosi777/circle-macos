@@ -9,10 +9,8 @@ import { Account } from '../models/account';
 import { rootStore } from '../stores/root_store';
 import { stopEvent } from '../utils/component_utils';
 import { toDinero } from '../utils/money';
-import { deleteTransaction } from '../utils/operations';
 import { EditAccount } from './edit_account';
 import { EditTransaction } from './edit_transaction';
-import { ImportFlow } from './import_flow';
 import { InvisibleButton } from './invisible_button';
 
 export const SideBorder = () => {
@@ -150,14 +148,12 @@ export const Side = observer(() => {
             if (result.response !== 0) {
               return;
             }
-            // Start deletion.
-            for (const transaction of account.transactions) {
-              await deleteTransaction(transaction.id, /* sync= */ false);
-            }
+            // Start bulk deletion.
+            await rootStore.transaction.bulkDelete(
+              account.transactions.map((transaction) => transaction.id),
+            );
 
             await repo(Account).delete(accountId);
-
-            await rootStore.transaction.reload();
           } else {
             // No associated transactions, just delete it.
             await repo(Account).delete(accountId);
@@ -172,15 +168,27 @@ export const Side = observer(() => {
   }
 
   function getBalance(account: Account): string {
+    if (!rootStore.profile.profile.showBalanceOnSide) {
+      return '';
+    }
     if (
-      !rootStore.account.totalCredit.has(account.id) ||
-      !rootStore.account.totalDebit.has(account.id)
+      !rootStore.account.totalCreditPending.has(account.id) &&
+      !rootStore.account.totalCreditCleared.has(account.id) &&
+      !rootStore.account.totalDebitPending.has(account.id) &&
+      !rootStore.account.totalDebitCleared.has(account.id)
     ) {
       return '';
     }
     let result = toDinero(account.balance, account.currency);
-    const totalCredit = rootStore.account.totalCredit.get(account.id);
-    const totalDebit = rootStore.account.totalDebit.get(account.id);
+
+    const totalCredit = rootStore.account.totalCreditCleared
+      .get(account.id)
+      .add(rootStore.account.totalCreditPending.get(account.id));
+
+    const totalDebit = rootStore.account.totalDebitCleared
+      .get(account.id)
+      .add(rootStore.account.totalDebitPending.get(account.id));
+
     if (account.isCredit) {
       result = result.add(totalCredit).subtract(totalDebit);
     } else {
@@ -191,7 +199,7 @@ export const Side = observer(() => {
 
   function handleSideItemSelect(sideItem: ISideItem) {
     rootStore.app.updateSelectedSideItem(sideItem);
-    rootStore.transaction.freshLoad();
+    rootStore.transaction.freshLoad(/* sync = */ false);
   }
 
   function matchSelectedSideItem(item: ISideItem) {

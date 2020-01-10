@@ -5,16 +5,16 @@ import { Category, CategoryType } from '../models/category';
 import { Payee } from '../models/payee';
 import { Transaction } from '../models/transaction';
 import { logger } from './logger';
-import profileManager from './profile';
+import { databasePath } from './sync';
 
 export function getConnection() {
-  logger.info(`Database location: ${profileManager.profile.databasePath}`);
+  logger.info(`Database connected. Location: ${databasePath}`);
   return createConnection({
     type: 'sqlite',
     synchronize: true,
     logging: false,
     logger: 'simple-console',
-    database: profileManager.profile.databasePath,
+    database: databasePath,
     entities: [Category, Account, Transaction, Payee],
   });
 }

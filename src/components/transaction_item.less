@@ -1,5 +1,9 @@
 .TransactionItem {
   padding: 5px 10px;
+  &.selected {
+    background-color: var(--sub-bg);
+  }
+
   .header {
     font-size: var(--text-s);
     font-weight: 700;
@@ -11,14 +15,26 @@
     justify-content: space-between;
     font-size: var(--text-s);
     align-items: center;
+
     .content {
-      .title {
-        color: var(--text);
+      display: flex;
+      align-items: center;
+      .indicator {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--tint);
+        margin: 0 8px 0 0;
       }
-      .subtitle {
-        font-weight: normal;
-        color: var(--text-sub);
-        font-size: var(--text-xs);
+      .title-group {
+        .title {
+          color: var(--text);
+        }
+        .subtitle {
+          font-weight: normal;
+          color: var(--text-sub);
+          font-size: var(--text-xs);
+        }
       }
     }
     .info {

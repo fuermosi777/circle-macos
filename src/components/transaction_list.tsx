@@ -4,7 +4,6 @@ import * as React from 'react';
 
 import { rootStore } from '../stores/root_store';
 import { isNearBottom, throttle } from '../utils/helper';
-import { deleteTransaction } from '../utils/operations';
 import { EditTransaction } from './edit_transaction';
 import { TransactionItem } from './transaction_item';
 
@@ -39,7 +38,7 @@ export const TransactionList = observer((props: IProps) => {
             buttons: ['Delete', 'Cancel'],
           });
           if (result.response === 0 /* Delete */) {
-            await deleteTransaction(transactionId);
+            await rootStore.transaction.delete(transactionId);
           }
         },
       }),
@@ -50,7 +49,7 @@ export const TransactionList = observer((props: IProps) => {
 
   function handleScrolled(target: HTMLDivElement) {
     if (isNearBottom(target)) {
-      rootStore.transaction.loadMore();
+      rootStore.transaction.loadMore(/* sync = */ false);
     }
   }
   const handleScrolledOp = throttle(handleScrolled);
@@ -66,6 +65,10 @@ export const TransactionList = observer((props: IProps) => {
           {index > 0 && typeof dotum === 'string' && <div className='divider'></div>}
           <TransactionItem
             data={dotum}
+            selected={
+              typeof dotum !== 'string' && rootStore.transaction.selectedTransactionId === dotum.id
+            }
+            onClick={(id) => rootStore.transaction.selectTransaction(id)}
             onContextMenu={(transactionId) => handleItemContextMenu(transactionId)}
           />
         </React.Fragment>

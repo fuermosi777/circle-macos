@@ -1,13 +1,13 @@
 import { List } from 'immutable';
-import { computed, flow, observable } from 'mobx';
+import { action, computed, flow, observable } from 'mobx';
 import moment from 'moment';
 import { FindManyOptions, getRepository as repo } from 'typeorm';
 
 import { SideItemType, kAllAccountsIndex } from '../interface/app';
 import { Transaction } from '../models/transaction';
 import { formatDate } from '../utils/format';
-import { isEmpty } from '../utils/helper';
 import { logger } from '../utils/logger';
+import { deleteTransaction } from '../utils/operations';
 import { RootStore } from './root_store';
 
 interface IGroup {
@@ -24,36 +24,39 @@ export class TransactionStore {
 
   isLoading = false;
 
+  @observable
+  selectedTransactionId: number;
+
   constructor(public rootStore: RootStore) {
-    this.freshLoad();
+    this.freshLoad(/* sync = */ false);
   }
 
   @observable.ref
   data: List<Transaction> = List();
 
-  freshLoad = flow(function*(this: TransactionStore) {
+  freshLoad = flow(function*(this: TransactionStore, sync = true) {
     try {
       this.clear();
-      yield this.loadMore();
+      yield this.loadMore(sync);
     } catch (err) {
       logger.error(`Failed to sync instance from Transactions.`, err);
     }
   });
 
-  reload = flow(function*(this: TransactionStore) {
+  reload = flow(function*(this: TransactionStore, sync = true) {
     try {
+      const limit = this.data.size;
       this.clear();
 
-      this.offset = 0;
-      this.limit = this.data.size;
-      yield this.loadMore();
+      this.limit = limit;
+      yield this.loadMore(sync);
       this.limit = 0;
     } catch (err) {
       throw err;
     }
   });
 
-  loadMore = flow(function*(this: TransactionStore) {
+  loadMore = flow(function*(this: TransactionStore, sync = true) {
     if (this.isLoading) {
       return;
     }
@@ -65,6 +68,7 @@ export class TransactionStore {
         relations: ['account', 'payee', 'category', 'from', 'to', 'sibling'],
         order: {
           [this.order]: 'DESC',
+          id: 'DESC',
         },
       };
       const selectedSideItem = this.rootStore.app.selectedSideItem;
@@ -78,6 +82,10 @@ export class TransactionStore {
 
       this.data = this.data.concat(List(transactions));
       this.offset += transactions.length;
+
+      if (sync) {
+        this.rootStore.sync.up();
+      }
     } catch (err) {
       throw err;
     } finally {
@@ -87,12 +95,28 @@ export class TransactionStore {
 
   delete = flow(function*(this: TransactionStore, id: number) {
     try {
-      yield repo(Transaction).delete(id);
+      yield deleteTransaction(id);
       yield this.reload();
     } catch (err) {
       throw err;
     }
   });
+
+  bulkDelete = flow(function*(this: TransactionStore, ids: number[]) {
+    try {
+      for (let id of ids) {
+        yield deleteTransaction(id);
+      }
+      yield this.reload();
+    } catch (err) {
+      throw err;
+    }
+  });
+
+  @action
+  selectTransaction(id: number) {
+    this.selectedTransactionId = id;
+  }
 
   @computed
   get groupedData(): Array<string | Transaction> {
@@ -131,8 +155,10 @@ export class TransactionStore {
     return result;
   }
 
+  @action
   private clear() {
     this.offset = 0;
     this.data = List();
+    this.limit = kDefaultPageSize;
   }
 }

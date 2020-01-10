@@ -6,6 +6,7 @@ import { CategoryStore } from './category_store';
 import { ModalStore } from './modal_store';
 import { PayeeStore } from './payee_store';
 import { ProfileStore } from './profile_store';
+import { SyncStore } from './sync_store';
 import { TransactionStore } from './transaction_store';
 
 // configure({ enforceActions: 'strict' });
@@ -18,15 +19,17 @@ class RootStore {
   category: CategoryStore;
   transaction: TransactionStore;
   profile: ProfileStore;
+  sync: SyncStore;
 
   constructor() {
     this.modal = new ModalStore(this);
     this.account = new AccountStore(this);
+    this.profile = new ProfileStore(this);
     this.app = new AppStore(this);
     this.payee = new PayeeStore(this);
     this.category = new CategoryStore(this);
     this.transaction = new TransactionStore(this);
-    this.profile = new ProfileStore(this);
+    this.sync = new SyncStore(this);
   }
 }
 

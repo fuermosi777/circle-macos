@@ -1,21 +1,17 @@
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 
 import { remote } from 'electron';
 
+import { Currency } from '../interface/currency';
 import { IProfile } from '../interface/profile';
 import { logger } from './logger';
-
-const kDatabaseName = 'circle-app-vault.sqlite';
-export const databasePath = path.join(remote.app.getPath('userData'), kDatabaseName);
-const icloudPath = path.join(os.homedir(), 'Library', 'Mobile Documents', 'com~apple~CloudDocs');
-const icloudDatabasePath = path.join(icloudPath, remote.app.getName(), kDatabaseName);
 
 const kLocalProfilePath = path.join(remote.app.getPath('userData'), 'local_profile.json');
 
 const defaultProfile: IProfile = {
-  databasePath: icloudDatabasePath,
+  showBalanceOnSide: true,
+  mainCurrency: Currency.USD,
 };
 
 class ProfileManager {
@@ -33,12 +29,29 @@ class ProfileManager {
     try {
       this.profile = JSON.parse(localProfileContent) as IProfile;
     } catch (err) {
+      logger.warn(`Failed to parsed store profile. Use default one instead.`, err);
       this.profile = defaultProfile;
     }
+
+    // Update local file with new configs.
+    for (const key in defaultProfile) {
+      if (!Reflect.has(this.profile, key)) {
+        Reflect.set(this.profile, key, Reflect.get(defaultProfile, key));
+      }
+    }
+
+    logger.info(`Local profile loaded.`, this.profile);
+
+    this.writeLocalProfile();
   }
 
   writeLocalProfile() {
     fs.writeFileSync(kLocalProfilePath, JSON.stringify(this.profile), 'utf8');
+  }
+
+  set(key: keyof IProfile, value: any) {
+    Reflect.set(this.profile, key, value);
+    this.writeLocalProfile();
   }
 }
 

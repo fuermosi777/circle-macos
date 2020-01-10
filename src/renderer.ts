@@ -8,10 +8,14 @@ import ReactDOM from 'react-dom';
 import { getConnection, initDatabase } from './utils/database';
 import { logger } from './utils/logger';
 import profileManager from './utils/profile';
+import { preSync } from './utils/sync';
 
 profileManager.prepareLocalProfile();
 
-getConnection()
+preSync()
+  .then(() => {
+    return getConnection();
+  })
   .then(async (connection) => {
     await initDatabase(connection);
     // Late import to make sure connection is set up.
