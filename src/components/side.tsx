@@ -8,6 +8,7 @@ import { ISideItem, SideItemType, kAllAccountsIndex } from '../interface/app';
 import { Account } from '../models/account';
 import { rootStore } from '../stores/root_store';
 import { stopEvent } from '../utils/component_utils';
+import { isEmpty, throttle } from '../utils/helper';
 import { toDinero } from '../utils/money';
 import { EditAccount } from './edit_account';
 import { EditTransaction } from './edit_transaction';
@@ -22,9 +23,14 @@ export const SideBorder = () => {
 
   function handleMouseMove(e: any) {
     if (isDragging) {
-      rootStore.app.updateSideWidth(e.pageX);
+      updateSideWidthOp(e.pageX);
     }
   }
+
+  function updateSideWidth(value: number) {
+    rootStore.app.updateSideWidth(value);
+  }
+  const updateSideWidthOp = throttle(updateSideWidth);
 
   function handleMouseUp() {
     endDragging();
@@ -67,19 +73,31 @@ interface IItemProps {
   selected?: boolean;
   onSelect(): void;
   onContextMenu?(): void;
+  childItems?: JSX.Element[];
 }
 
 const SideItem = (props: IItemProps) => {
+  const [showChildItems, setShowChildItems] = React.useState(true);
   return (
-    <div
-      className={`SideItem ${props.selected ? 'selected' : ''}`}
-      onContextMenu={props.onContextMenu}
-      onClick={props.onSelect}>
-      {props.info && <div className='side-info'>{props.info}</div>}
-      <div className='content'>
-        {props.icon && <span className={`side-icon ${props.iconClassName}`}>{props.icon}</span>}
-        <span className='side-title'>{props.label}</span>
+    <div className='SideItem'>
+      <div
+        className={`header ${props.selected ? 'selected' : ''}`}
+        onClick={props.onSelect}
+        onContextMenu={props.onContextMenu}>
+        {props.info && <div className='side-info'>{props.info}</div>}
+        {isEmpty(props.info) && props.childItems && (
+          <div
+            className='side-info expand-icon'
+            onMouseDown={() => setShowChildItems(!showChildItems)}>
+            {showChildItems ? <Icon.ChevronUp /> : <Icon.ChevronDown />}
+          </div>
+        )}
+        <div className='content'>
+          {props.icon && <span className={`side-icon ${props.iconClassName}`}>{props.icon}</span>}
+          <span className='side-title'>{props.label}</span>
+        </div>
       </div>
+      <div className='child-items'>{showChildItems && props.childItems}</div>
     </div>
   );
 };
@@ -209,41 +227,60 @@ export const Side = observer(() => {
     );
   }
 
+  function renderAccounts() {
+    return rootStore.account.data.map((account) => {
+      const sideItem: ISideItem = {
+        type: SideItemType.Account,
+        index: account.id,
+      };
+
+      return (
+        <SideItem
+          key={account.id}
+          icon={<Icon.CreditCard />}
+          iconClassName='account'
+          label={account.name}
+          info={getBalance(account)}
+          onContextMenu={() => handleContextMenu(account.id)}
+          onSelect={() => handleSideItemSelect(sideItem)}
+          selected={matchSelectedSideItem(sideItem)}
+        />
+      );
+    });
+  }
+
   const allAccountSideItem = {
     type: SideItemType.Account,
     index: kAllAccountsIndex,
   };
 
+  const reportsSideItem = {
+    type: SideItemType.Reports,
+  };
+
   return (
     <div className='Side' style={{ width: rootStore.app.sideWidth }}>
       <div className='side-top'></div>
-      <div className='side-item-group'>
-        <SideItem
-          icon={<Icon.Star />}
-          iconClassName='account-header'
-          label='Accounts'
-          onSelect={() => handleSideItemSelect(allAccountSideItem)}
-          selected={matchSelectedSideItem(allAccountSideItem)}
-        />
-        {rootStore.account.data.map((account) => {
-          const sideItem: ISideItem = {
-            type: SideItemType.Account,
-            index: account.id,
-          };
-
-          return (
-            <SideItem
-              key={account.id}
-              icon={<Icon.CreditCard />}
-              iconClassName='account'
-              label={account.name}
-              info={getBalance(account)}
-              onContextMenu={() => handleContextMenu(account.id)}
-              onSelect={() => handleSideItemSelect(sideItem)}
-              selected={matchSelectedSideItem(sideItem)}
-            />
-          );
-        })}
+      <div className='side-body'>
+        <div className='side-group'>
+          <SideItem
+            icon={<Icon.Star />}
+            iconClassName='account-header'
+            label='Accounts'
+            onSelect={() => handleSideItemSelect(allAccountSideItem)}
+            selected={matchSelectedSideItem(allAccountSideItem)}
+            childItems={renderAccounts()}
+          />
+        </div>
+        <div className='side-group'>
+          <SideItem
+            icon={<Icon.Activity />}
+            iconClassName='reports-header'
+            label='Reports'
+            onSelect={() => handleSideItemSelect(reportsSideItem)}
+            selected={matchSelectedSideItem(reportsSideItem)}
+          />
+        </div>
       </div>
 
       <div className='side-bottom'>

@@ -6,6 +6,7 @@ import { FindManyOptions, getRepository as repo } from 'typeorm';
 import { SideItemType, kAllAccountsIndex } from '../interface/app';
 import { Transaction } from '../models/transaction';
 import { formatDate } from '../utils/format';
+import { notEmpty } from '../utils/helper';
 import { logger } from '../utils/logger';
 import { deleteTransaction } from '../utils/operations';
 import { RootStore } from './root_store';
@@ -37,7 +38,7 @@ export class TransactionStore {
   freshLoad = flow(function*(this: TransactionStore, sync = true) {
     try {
       this.clear();
-      yield this.loadMore(sync);
+      this.data = yield this.load(sync);
     } catch (err) {
       logger.error(`Failed to sync instance from Transactions.`, err);
     }
@@ -45,22 +46,18 @@ export class TransactionStore {
 
   reload = flow(function*(this: TransactionStore, sync = true) {
     try {
-      const limit = this.data.size;
-      this.clear();
+      this.offset = 0;
+      this.limit = this.data.size;
 
-      this.limit = limit;
-      yield this.loadMore(sync);
-      this.limit = 0;
+      this.data = yield this.load(sync);
+      this.limit = kDefaultPageSize;
     } catch (err) {
       throw err;
     }
   });
 
-  loadMore = flow(function*(this: TransactionStore, sync = true) {
-    if (this.isLoading) {
-      return;
-    }
-    this.isLoading = true;
+  // Sync is a boolean whether to sync the database to cloud.
+  private load = flow(function*(this: TransactionStore, sync = true) {
     try {
       const query: FindManyOptions<Transaction> = {
         skip: this.offset,
@@ -80,16 +77,24 @@ export class TransactionStore {
       }
       const transactions = yield repo(Transaction).find(query);
 
-      this.data = this.data.concat(List(transactions));
       this.offset += transactions.length;
-
       if (sync) {
         this.rootStore.sync.up();
       }
+
+      return List(transactions);
     } catch (err) {
       throw err;
-    } finally {
-      this.isLoading = false;
+    }
+  });
+
+  loadMore = flow(function*(this: TransactionStore) {
+    try {
+      let moreData: List<Transaction> = yield this.load(/* sync = */ false);
+      moreData = this.data.concat(moreData);
+      this.data = moreData;
+    } catch (err) {
+      throw err;
     }
   });
 
@@ -104,7 +109,7 @@ export class TransactionStore {
 
   bulkDelete = flow(function*(this: TransactionStore, ids: number[]) {
     try {
-      for (let id of ids) {
+      for (const id of ids) {
         yield deleteTransaction(id);
       }
       yield this.reload();
@@ -158,7 +163,6 @@ export class TransactionStore {
   @action
   private clear() {
     this.offset = 0;
-    this.data = List();
     this.limit = kDefaultPageSize;
   }
 }

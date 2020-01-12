@@ -19,8 +19,6 @@ import { InputField } from './input_field';
 import { Radio } from './radio';
 import { Select } from './select';
 
-const kDefaultAccountId = 1;
-
 interface IProps {
   transactionId?: number;
 
@@ -28,24 +26,25 @@ interface IProps {
 }
 
 export const EditTransaction = observer((props: IProps) => {
+  const defaultAccount = rootStore.account.data[0];
+  const accountNames = rootStore.account.data.map((item) => item.name);
+
   const [type, setType] = React.useState(TransactionType.Credit);
   const [amount, setAmount] = React.useState('');
   const [payeeName, setPayeeName] = React.useState('');
-  const [from, setFrom] = React.useState(kDefaultAccountId);
-  const [to, setTo] = React.useState(kDefaultAccountId);
+  const [fromName, setFromName] = React.useState(defaultAccount.name);
+  const [toName, setToName] = React.useState(defaultAccount.name);
   const [categoryName, setCategoryName] = React.useState('');
-  const [accountId, setAccountId] = React.useState(kDefaultAccountId);
+  const [accountName, setAccountName] = React.useState(defaultAccount.name);
   const [date, setDate] = React.useState(new Date());
   const [status, setStatus] = React.useState(TransactionStatus.Pending);
   const [note, setNote] = React.useState('');
 
   const [quickCategories, setQuickCategories] = React.useState([]);
+  const [quickAccounts, setQuickAccounts] = React.useState([]);
 
   React.useEffect(() => {
     let cancel = false;
-    if (rootStore.account.data.length >= 0 && !props.transactionId) {
-      setAccountId(rootStore.account.data[0].id);
-    }
 
     const getTransaction = async () => {
       if (cancel || isEmpty(props.transactionId)) {
@@ -75,17 +74,18 @@ export const EditTransaction = observer((props: IProps) => {
         setAmount(String(transaction.amount));
         setPayeeName(transaction.payee.name);
         setQuickCategories(transaction.payee.categories.map((cate) => cate.name));
+        setQuickAccounts(transaction.payee.accounts.map((acct) => acct.name));
       }
       if (transaction.from) {
-        setFrom(transaction.from.id);
+        setFromName(transaction.from.name);
       }
       if (transaction.to) {
-        setTo(transaction.to.id);
+        setToName(transaction.to.name);
       }
       if (transaction.category) {
         setCategoryName(transaction.category.name);
       }
-      setAccountId(transaction.account.id);
+      setAccountName(transaction.account.name);
       setDate(transaction.date);
       setStatus(transaction.status);
       setNote(transaction.note);
@@ -97,6 +97,11 @@ export const EditTransaction = observer((props: IProps) => {
       cancel = true;
     };
   }, []);
+
+  function handleTypeChange(type: TransactionType) {
+    setType(type);
+    setCategoryName('');
+  }
 
   function handleAmountChange(value: string) {
     // Positive numbers.
@@ -110,17 +115,17 @@ export const EditTransaction = observer((props: IProps) => {
       return false;
     }
     if (type === TransactionType.Credit) {
-      if (!amount || !payeeName || !categoryName || !accountId || !date) {
+      if (!amount || !payeeName || !categoryName || !accountName || !date) {
         return false;
       }
     }
     if (type === TransactionType.Debit) {
-      if (!amount || !categoryName || !accountId || !date) {
+      if (!amount || !categoryName || !accountName || !date) {
         return false;
       }
     }
 
-    if (type === TransactionType.Transfer && from === to) {
+    if (type === TransactionType.Transfer && fromName === toName) {
       return false;
     }
 
@@ -133,11 +138,11 @@ export const EditTransaction = observer((props: IProps) => {
       await addOrEditTransaction(
         type,
         Number(amount),
-        accountId,
+        accountName,
         date,
         status,
-        from,
-        to,
+        fromName,
+        toName,
         categoryName,
         payeeName,
         false,
@@ -153,12 +158,28 @@ export const EditTransaction = observer((props: IProps) => {
   async function handlePayeeNameChange(name: string) {
     try {
       setPayeeName(name);
+      // If no payee name, reset quick action options.
+      if (isEmpty(name)) {
+        setQuickCategories([]);
+        setQuickAccounts([]);
+        return;
+      }
       const payee = await repo(Payee).findOne({
         where: { name },
         relations: ['categories', 'accounts'],
       });
       if (notEmpty(payee)) {
-        setQuickCategories(payee.categories.map((cate) => cate.name));
+        setQuickCategories(payee.categories.map((item) => item.name));
+        setQuickAccounts(payee.accounts.map((item) => item.name));
+        if (payee.categories.length > 0) {
+          setCategoryName(payee.categories[0].name);
+        }
+        if (payee.accounts.length > 0) {
+          setAccountName(payee.accounts[0].name);
+        }
+      } else {
+        setQuickCategories([]);
+        setQuickAccounts([]);
       }
     } catch (err) {
       logger.error(err);
@@ -168,7 +189,7 @@ export const EditTransaction = observer((props: IProps) => {
   return (
     <div className='EditTransaction'>
       <InputField>
-        <Radio selectedValue={type} onChange={setType}>
+        <Radio selectedValue={type} onChange={handleTypeChange}>
           <Radio.Option label='Expense' value={TransactionType.Credit} />
           <Radio.Option label='Income' value={TransactionType.Debit} />
           <Radio.Option label='Transfer' value={TransactionType.Transfer} />
@@ -181,13 +202,18 @@ export const EditTransaction = observer((props: IProps) => {
 
       {type === TransactionType.Transfer && (
         <InputField>
-          <Select onChange={(value) => setFrom(Number(value))} value={from} label='From'>
-            {rootStore.account.data.map((account: Account) => (
-              <Select.Option key={account.id} value={account.id} label={account.name} />
-            ))}
-          </Select>
+          <Input
+            label='From'
+            value={accountName}
+            onChange={(value) => setFromName(value)}
+            options={accountNames}
+            filterOptions={false}
+            isSelect
+          />
         </InputField>
       )}
+
+      {/* Enter or select Payee. */}
       {type === TransactionType.Credit && (
         <InputField>
           <Input
@@ -201,11 +227,14 @@ export const EditTransaction = observer((props: IProps) => {
 
       {type === TransactionType.Transfer ? (
         <InputField>
-          <Select onChange={(value) => setTo(Number(value))} value={to} label='To'>
-            {rootStore.account.data.map((account: Account) => (
-              <Select.Option key={account.id} value={account.id} label={account.name} />
-            ))}
-          </Select>
+          <Input
+            label='To'
+            value={accountName}
+            onChange={(value) => setToName(value)}
+            options={accountNames}
+            filterOptions={false}
+            isSelect
+          />
         </InputField>
       ) : (
         <InputField>
@@ -226,17 +255,18 @@ export const EditTransaction = observer((props: IProps) => {
           />
         </InputField>
       )}
+
+      {/* Select related account associated with this transaction. */}
       {type !== TransactionType.Transfer && (
         <InputField>
-          <Select
-            onChange={(value: number) => {
-              setAccountId(Number(value));
-            }}
-            value={accountId}>
-            {rootStore.account.data.map((account: Account) => (
-              <Select.Option key={account.id} value={account.id} label={account.name} />
-            ))}
-          </Select>
+          <Input
+            value={accountName}
+            onChange={(value) => setAccountName(value)}
+            options={accountNames}
+            filterOptions={false}
+            isSelect
+            quickOptions={quickAccounts}
+          />
         </InputField>
       )}
 

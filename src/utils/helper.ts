@@ -1,3 +1,5 @@
+import { Set } from "immutable";
+
 export function isEmpty(value: any): boolean {
   if (typeof value === 'undefined') {
     return true;
@@ -52,4 +54,14 @@ export function isNearBottom(t: HTMLDivElement, perToBottom = 0.2) {
 
 export function isNearTop(t: HTMLDivElement, perToTop = 0.2) {
   return t.scrollTop < (t.scrollHeight - t.offsetHeight) * perToTop;
+}
+
+export function filterBy(keyword: string, options: string[], exclude?: Set<string>): string[] {
+  let result = options.filter(
+    (opt) => opt.toLowerCase().startsWith(keyword.toLowerCase()) ,
+  );
+  if (exclude) {
+    result = result.filter(opt => !exclude.has(opt))
+  }
+  return result;
 }

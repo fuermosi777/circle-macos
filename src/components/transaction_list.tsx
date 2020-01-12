@@ -49,7 +49,7 @@ export const TransactionList = observer((props: IProps) => {
 
   function handleScrolled(target: HTMLDivElement) {
     if (isNearBottom(target)) {
-      rootStore.transaction.loadMore(/* sync = */ false);
+      rootStore.transaction.loadMore();
     }
   }
   const handleScrolledOp = throttle(handleScrolled);

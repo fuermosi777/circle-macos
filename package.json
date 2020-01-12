@@ -85,7 +85,6 @@
     "prettier-plugin-import-sort": "^0.0.3",
     "style-loader": "^0.23.1",
     "ts-loader": "^6.2.1",
-    "tslint": "^5.20.0",
     "typescript": "^3.7.0"
   },
   "dependencies": {

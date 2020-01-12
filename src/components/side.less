@@ -17,7 +17,7 @@
     height: var(--sidebar-p-t);
   }
 
-  .side-item-group {
+  .side-body {
     position: absolute;
     top: var(--sidebar-p-t);
     left: 0;
@@ -27,21 +27,33 @@
     padding-right: var(--sidebar-p-l);
     overflow-y: auto;
   }
+  .side-group {
+    margin-bottom: 20px;
+  }
 
   .SideItem {
     width: 100%;
-    margin-bottom: 4px;
-    padding: 4px 8px;
-    border-radius: 6px;
 
-    &.selected {
-      background-color: var(--sub-bg);
+    .header {
+      padding: 4px 8px;
+      border-radius: 6px;
+      margin-bottom: 5px;
+      &.selected {
+        background-color: var(--sub-bg);
+      }
     }
 
     .content {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+
+    .expand-icon {
+      svg {
+        width: 16px;
+        height: 16px;
+      }
     }
 
     .side-icon {
@@ -54,6 +66,9 @@
       &.account-header svg {
         fill: #65aef6;
         stroke: #589ce8;
+      }
+      &.reports-header svg {
+        stroke: #ff306c;
       }
       &.account svg {
         stroke: #a9acb2;
@@ -68,6 +83,8 @@
       color: var(--text-sub);
       font-size: var(--text-s);
       float: right;
+    }
+    .child-items {
     }
   }
 

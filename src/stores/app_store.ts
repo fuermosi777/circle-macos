@@ -1,3 +1,4 @@
+import { Set } from 'immutable';
 import { action, autorun, computed, flow, observable } from 'mobx';
 
 import { ISideItem, SideItemType, kAllAccountsIndex } from '../interface/app';
@@ -46,7 +47,8 @@ export class AppStore {
     // Only fetch rates when main currency in profile is changed.
     autorun(() => {
       const base = rootStore.profile.profile.mainCurrency;
-      const symbols = rootStore.account.data.map((account) => account.currency);
+      let symbols = rootStore.account.data.map((account) => account.currency);
+      symbols = Set<Currency>(symbols).toArray();
       if (isEmpty(base) || symbols.length === 0) {
         return;
       }
@@ -79,6 +81,10 @@ export class AppStore {
       const response = yield fetch(
         `https://api.exchangeratesapi.io/latest?base=${base}&symbols=${symbols.join(',')}`,
       );
+      let { status } = response;
+      if (status === 400) {
+        throw new Error(`Status 400.`);
+      }
       this.exchangeRates = yield response.json();
       this.exchangeRateStatus = 'done';
     } catch (err) {

@@ -19,12 +19,12 @@ import { logger } from './logger';
 export async function addOrEditTransaction(
   type: TransactionType,
   amount: number,
-  // Must pass in a valid account ID.
-  accountId: number,
+  // Must pass in a valid account name.
+  accountName: string,
   date: Date,
   status: TransactionStatus,
-  from?: number,
-  to?: number,
+  fromName?: string,
+  toName?: string,
   categoryName?: string,
   payeeName?: string,
   isDone = false,
@@ -52,12 +52,12 @@ export async function addOrEditTransaction(
       }
 
       let fromAccount: Account;
-      if (notEmpty(from)) {
-        fromAccount = await repo(Account).findOne(from);
+      if (notEmpty(fromName)) {
+        fromAccount = await repo(Account).findOne({ name: fromName });
       }
       let toAccount: Account;
-      if (notEmpty(to)) {
-        toAccount = await repo(Account).findOne(to);
+      if (notEmpty(toName)) {
+        toAccount = await repo(Account).findOne({ name: toName });
       }
 
       // For transfer, create two corresbonding transactions.
@@ -123,9 +123,9 @@ export async function addOrEditTransaction(
         logger.info(`Payee ${payeeName} doesn't exist. Create one.`);
       }
 
-      const account = await repo(Account).findOne(accountId);
+      const account = await repo(Account).findOne({ name: accountName });
       if (isEmpty(account)) {
-        throw new Error(`Account with ID ${accountId} doesn't exist.`);
+        throw new Error(`Account with name ${accountName} doesn't exist.`);
       }
 
       if (isEmpty(payee.categories)) {

@@ -1,5 +1,32 @@
 .Input {
   position: relative;
+  display: flex;
+  align-items: center;
+  position: relative;
+  &.select {
+    input {
+      cursor: default;
+      caret-color: transparent;
+
+      -webkit-appearance: none;
+      color: var(--text);
+      padding: 3px 8px 4px;
+      border-radius: 4px;
+      font-size: var(--text-xs);
+      font-weight: 500;
+      border: none;
+      outline: none;
+      background-color: var(--main-bg);
+
+      border-radius: 4px;
+      box-shadow: 0 1px 1px var(--button-shadow);
+    }
+  }
+  .label {
+    font-size: var(--text-xs);
+    font-weight: 500;
+    margin-right: 5px;
+  }
   input {
     border: none;
     background: transparent;
@@ -10,10 +37,13 @@
     width: 100%;
   }
   .options {
-    max-height: 100px;
+    position: absolute;
+    top: 25px;
+    max-height: 140px;
+    width: 100%;
     overflow-y: auto;
     position: absolute;
-    font-size: var(--text-s);
+    font-size: var(--text-xs);
     color: var(--text);
     font-weight: 500;
     border-radius: 4px;

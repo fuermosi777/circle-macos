@@ -1,5 +1,6 @@
 export const enum SideItemType {
   Account,
+  Reports,
 }
 
 export const kAllAccountsIndex = -1;
