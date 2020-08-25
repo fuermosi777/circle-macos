@@ -1,21 +1,14 @@
 import { Map } from 'immutable';
-import { flow, observable, reaction } from 'mobx';
+import { flow, observable } from 'mobx';
 import { Not, getRepository as repo } from 'typeorm';
 
+import { IBalance } from '../interface/app';
 import { Account } from '../models/account';
-import { TransactionStatus, TransactionType } from '../models/transaction';
 import { logger } from '../utils/logger';
-import { toDinero } from '../utils/money';
+import { calculateBalance, toDinero } from '../utils/money';
 import { RootStore } from './root_store';
 
 type AccountInfo = Map<number, Dinero.Dinero>;
-
-interface IBalance<T> {
-  pendingCredit: T;
-  pendingDebit: T;
-  clearedCredit: T;
-  clearedDebit: T;
-}
 
 export class AccountStore {
   @observable
@@ -59,6 +52,7 @@ export class AccountStore {
     }
   });
 
+  // TODO: when transactions is updated, re-calculate.
   private updateBalance(): IBalance<AccountInfo> {
     try {
       let totalBalance: IBalance<AccountInfo> = {
@@ -68,27 +62,7 @@ export class AccountStore {
         clearedDebit: Map(),
       };
       for (const account of this.data) {
-        let balance: IBalance<number> = {
-          pendingCredit: 0,
-          pendingDebit: 0,
-          clearedCredit: 0,
-          clearedDebit: 0,
-        };
-        for (const transaction of account.transactions) {
-          if (transaction.type === TransactionType.Credit) {
-            if (transaction.status === TransactionStatus.Cleared) {
-              balance.clearedCredit += transaction.amount;
-            } else if (transaction.status === TransactionStatus.Pending) {
-              balance.pendingCredit += transaction.amount;
-            }
-          } else if (transaction.type === TransactionType.Debit) {
-            if (transaction.status === TransactionStatus.Cleared) {
-              balance.clearedDebit += transaction.amount;
-            } else if (transaction.status === TransactionStatus.Pending) {
-              balance.pendingDebit += transaction.amount;
-            }
-          }
-        }
+        let balance = calculateBalance(account.transactions);
         totalBalance.pendingDebit = totalBalance.pendingDebit.set(
           account.id,
           toDinero(balance.pendingDebit, account.currency),

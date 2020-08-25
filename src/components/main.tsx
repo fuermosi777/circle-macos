@@ -1,12 +1,13 @@
 import { observer } from 'mobx-react';
 import * as React from 'react';
 
-import { SideItemType, kAllAccountsIndex } from '../interface/app';
+import { ReportsItem, SideItemType, kAllAccountsIndex } from '../interface/app';
 import { rootStore } from '../stores/root_store';
 import { isEmpty } from '../utils/helper';
 import { logger } from '../utils/logger';
 import { toDinero } from '../utils/money';
 import { convertTo } from '../utils/money';
+import { ReportAssets } from './report_assets';
 import { TransactionList } from './transaction_list';
 
 export const Main = observer(() => {
@@ -76,7 +77,9 @@ export const Main = observer(() => {
       <div className='top'>
         <div className='top-item total'>{getBalance()}</div>
       </div>
-      <TransactionList />
+      {rootStore.app.selectedSideItem.type === SideItemType.Account && <TransactionList />}
+      {rootStore.app.selectedSideItem.type === SideItemType.Reports &&
+        rootStore.app.selectedSideItem.index === ReportsItem.Assets && <ReportAssets />}
     </div>
   );
 });

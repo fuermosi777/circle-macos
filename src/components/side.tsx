@@ -4,7 +4,7 @@ import * as React from 'react';
 import * as Icon from 'react-feather';
 import { getRepository as repo } from 'typeorm';
 
-import { ISideItem, SideItemType, kAllAccountsIndex } from '../interface/app';
+import { ISideItem, ReportsItem, SideItemType, kAllAccountsIndex } from '../interface/app';
 import { Account } from '../models/account';
 import { rootStore } from '../stores/root_store';
 import { stopEvent } from '../utils/component_utils';
@@ -13,6 +13,16 @@ import { toDinero } from '../utils/money';
 import { EditAccount } from './edit_account';
 import { EditTransaction } from './edit_transaction';
 import { InvisibleButton } from './invisible_button';
+
+const allAccountSideItem = {
+  type: SideItemType.Account,
+  index: kAllAccountsIndex,
+};
+
+const reportsAssetsItem = {
+  type: SideItemType.Reports,
+  index: ReportsItem.Assets,
+};
 
 export const SideBorder = () => {
   const [isDragging, setDragging] = React.useState(false);
@@ -71,7 +81,7 @@ interface IItemProps {
   iconClassName: string;
   info?: string;
   selected?: boolean;
-  onSelect(): void;
+  onSelect?(): void;
   onContextMenu?(): void;
   childItems?: JSX.Element[];
 }
@@ -249,15 +259,6 @@ export const Side = observer(() => {
     });
   }
 
-  const allAccountSideItem = {
-    type: SideItemType.Account,
-    index: kAllAccountsIndex,
-  };
-
-  const reportsSideItem = {
-    type: SideItemType.Reports,
-  };
-
   return (
     <div className='Side' style={{ width: rootStore.app.sideWidth }}>
       <div className='side-top'></div>
@@ -277,8 +278,16 @@ export const Side = observer(() => {
             icon={<Icon.Activity />}
             iconClassName='reports-header'
             label='Reports'
-            onSelect={() => handleSideItemSelect(reportsSideItem)}
-            selected={matchSelectedSideItem(reportsSideItem)}
+            childItems={[
+              <SideItem
+                key={ReportsItem.Assets}
+                icon={<Icon.DollarSign />}
+                iconClassName='assets-header'
+                label='Wealth'
+                onSelect={() => handleSideItemSelect(reportsAssetsItem)}
+                selected={matchSelectedSideItem(reportsAssetsItem)}
+              />,
+            ]}
           />
         </div>
       </div>
